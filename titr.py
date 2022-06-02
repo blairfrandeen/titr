@@ -42,6 +42,19 @@ def help_msg():
         print(f"{cmd}\t-\t{desc}")
 
 
+def fill_hours(hours: List[float], target: float) -> List[float]:
+    total = sum(hours)
+    difference = target - total
+    if difference == 0:
+        return hours
+
+    for index, item in enumerate(hours):
+        hours[index] = item + difference * item / total
+
+    assert sum(hours) == target
+
+    return hours
+
 def parse_command(user_command: str) -> None:
     """
     Parse user commands. Return the command and
