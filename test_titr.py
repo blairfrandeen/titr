@@ -13,9 +13,11 @@ def test_parse():
         "help, I'm a bug",
         '-53',
         '.25*923',
-        #  'Y',
+        'Y',
         '.25 4 q',
         '.5 g g',
+        '.5 93',
+        '42 3 i',
     ]
     valid_commands = [
         'C',
