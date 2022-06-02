@@ -5,10 +5,10 @@ titr - pronounced 'titter'
 
 A time tracker CLI.
 """
-import re
+from typing import Optional, Tuple, Dict, List
 
-MAX_HOURS = 9       # maximum hours that can be entered for any task
-CATEGORIES = {
+MAX_HOURS: float = 9  # maximum hours that can be entered for any task
+CATEGORIES: Dict[int, str] = {
     2: "Deep Work",
     3: "Discussions",
     4: "Configuration",
@@ -18,8 +18,8 @@ CATEGORIES = {
     8: "Email",
 }
 
-COMMANDS = {
-    "A": "Add Entry",     # default command
+COMMANDS: Dict[str, str] = {
+    "A": "Add Entry",  # default command
     "C": "Copy",
     "P": "Preview",
     "Z": "Undo Last Input",
@@ -30,11 +30,17 @@ COMMANDS = {
     "H": "Help",
 }
 
-ACCOUNTS = {
+ACCOUNTS: Dict[str, str] = {
     "O": "OS",
     "G": "Group Lead",
     "I": "Incidental",
 }
+
+
+def help_msg():
+    for cmd, desc in COMMANDS.items():
+        print(f"{cmd}\t-\t{desc}")
+
 
 def parse_command(user_command: str) -> None:
     """
@@ -50,9 +56,14 @@ def parse_command(user_command: str) -> None:
     if not isinstance(user_command, str):
         raise TypeError
 
-    args = user_command.split(';')
+    args: List[str] = user_command.split(";")
 
-    command, hours, category, account, comment = None, None, None, None, None
+    command: Optional[str] = None
+    hours: Optional[float] = None
+    category: Optional[int] = None
+    account: Optional[str] = None
+    comment: Optional[str] = None
+
     if args[0].isalpha():
         if len(args[0]) > 1:
             raise ValueError("Command should be single letter.")
@@ -62,34 +73,42 @@ def parse_command(user_command: str) -> None:
         else:
             raise ValueError("Command not found.")
     else:
-        command = 'A'
+        command = "A"
         hours = float(args[0])
         if hours < 0:
             raise ValueError("Hours must be positive")
         elif hours > MAX_HOURS:
             raise ValueError("You're working too much.")
 
-        if len(args) > 1 and args[1] != '':
+        if len(args) > 1 and args[1] != "":
             category = int(args[1])
             if category not in CATEGORIES.keys():
                 raise ValueError("Unknown category")
 
-        if len(args) > 2 and args[2] != '':
+        if len(args) > 2 and args[2] != "":
             account = args[2].upper()
             if account not in ACCOUNTS.keys():
                 raise ValueError("Unknown account")
 
-        if len(args) > 3 and args[3] != '':
+        if len(args) > 3 and args[3] != "":
             comment = args[3]
 
-    arguments = (hours, category, account, comment)
+    arguments: Tuple[
+        Optional[float],
+        Optional[int],
+        Optional[str],
+        Optional[str],
+    ] = (hours, category, account, comment)
+
     return command, arguments
+
 
 def main() -> None:
     print("Welcome to titr.")
-    user_command: str = ''
-    while user_command != 'q':
-        user_command = input('> ')
+    help_msg()
+    user_command: str = ""
+    while user_command != "q":
+        user_command = input("> ")
         try:
             parse_command(user_command)
         except ValueError as e:
