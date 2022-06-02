@@ -25,50 +25,64 @@ COMMANDS = {
     "Z": "Undo Last Input",
     "D": "Start Over",
     "W": "Display WAMS",
-    "A": "Display Categories",
+    "T": "Display Categories",
     "Q": "Quit",
     "H": "Help",
 }
 
+ACCOUNTS = {
+    "O": "OS",
+    "G": "Group Lead",
+    "I": "Incidental",
+}
+
 def parse_command(user_command: str) -> None:
+    """
+    Parse user commands. Return the command and
+    a tuple of arguments. Commands & arguments
+    are separated by a semicolon. The logic:
+    - If the first split is a char, look for that command
+    - If the first split is not a char, apply a default command
+    - Remaining splits in the following order:
+    - Hours Worked, Work Type, Work Account, Comment
+    - If no entry for type, account or comment, apply defaults.
+    """
     if not isinstance(user_command, str):
         raise TypeError
 
-    re_comment = r"((?<=\").+(?=\"))|((?<=\').+(?=\'))"
-    re_num = r"((?<!\")\d*\.?\d*(?!\"))"
-    re_char = r"((?<!\")\w?(?!\"))"
-    args = []
-    if re.search(parse_regex, user_command):
-        print(f"{re.search(parse_regex, user_command).groups() = }")
-        for match in re.search(parse_regex, user_command).groups():
-            print(f"{match = }")
-            #  for arg in match:
-                #  print(f"{arg = }")
-            if match is not None and match != '':
-                args.append(arg)
-    else:
-        return None, None
+    args = user_command.split(';')
 
-    command = None
-    arguments = None
-    # Arguments: (Hours, Category, Charge Number, Date)
-    #  arguments = (None, None, None, None)
-    print(f"{args[0] = }")
+    command, hours, category, account, comment = None, None, None, None, None
     if args[0].isalpha():
-        print(f"{args[0] = }")
         if len(args[0]) > 1:
-            raise ValueError # commands are only single letter
+            raise ValueError("Command should be single letter.")
         elif args[0].upper() in COMMANDS.keys():
-            command = args[0]
-            arguments = args[1:]
+            command = args[0].upper()
+            return command, None
         else:
-            raise ValueError # command not found
+            raise ValueError("Command not found.")
     else:
         command = 'A'
-        args[0] = float(args[0])
-        if args[0] < 0 or args[0] > MAX_HOURS:
-            raise ValueError # hours must be positive, and not excessive
+        hours = float(args[0])
+        if hours < 0:
+            raise ValueError("Hours must be positive")
+        elif hours > MAX_HOURS:
+            raise ValueError("You're working too much.")
 
+        if len(args) > 1 and args[1] != '':
+            category = int(args[1])
+            if category not in CATEGORIES.keys():
+                raise ValueError("Unknown category")
+
+        if len(args) > 2 and args[2] != '':
+            account = args[2].upper()
+            if account not in ACCOUNTS.keys():
+                raise ValueError("Unknown account")
+
+        if len(args) > 3 and args[3] != '':
+            comment = args[3]
+
+    arguments = (hours, category, account, comment)
     return command, arguments
 
 def main() -> None:
@@ -76,7 +90,10 @@ def main() -> None:
     user_command: str = ''
     while user_command != 'q':
         user_command = input('> ')
-        parse_command(user_command)
+        try:
+            parse_command(user_command)
+        except ValueError as e:
+            print("Invalid command: ", e)
 
 
 if __name__ == "__main__":
