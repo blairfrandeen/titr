@@ -1,6 +1,12 @@
 import pytest
 import titr
 
+def test_fill_hours():
+    assert titr.fill_hours([2, 2], 5) == [2.5, 2.5]
+    assert titr.fill_hours([2, 2], 4) == [2, 2]
+    assert titr.fill_hours([2, ], 5) == [5]
+    assert titr.fill_hours([3, 4], 6) == [3 - 3/7, 4-4/7]
+    assert titr.fill_hours([1,2,3], 7) == [7/6, 14/6, 3.5]
 
 def test_parse():
     invalid_args = [
