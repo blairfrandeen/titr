@@ -13,19 +13,24 @@ def console():
     cs = titr.ConsoleSession()
     yield cs
 
-def test_clear(console):
-    console.output = ['something,','something else']
-    console.clear()
-    assert console.output == []
+@pytest.fixture
+def time_entry():
+    te = titr.TimeEntry(2, 2, None, 'test entry')
+    yield te
 
-def test_undo(console):
-    console.output = ['something,','something else']
+def test_clear(console, time_entry):
+    console.time_entries = [time_entry, time_entry]
+    console.clear()
+    assert console.time_entries == []
+
+def test_undo(console, time_entry):
+    console.time_entries = [time_entry, time_entry]
     console.undo_last()
-    assert console.output == ['something,']
+    assert console.time_entries == [time_entry]
     console.undo_last()
-    assert console.output == []
+    assert console.time_entries == []
     console.undo_last()
-    assert console.output == []
+    assert console.time_entries == []
 
 def test_parse(console):
     invalid_args = [

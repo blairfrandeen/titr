@@ -6,6 +6,7 @@ titr - pronounced 'titter'
 A time tracker CLI.
 """
 import datetime
+import pyperclip
 from typing import Optional, Tuple, Dict, List, Callable
 
 MAX_HOURS: float = 9  # maximum hours that can be entered for any task
@@ -66,14 +67,27 @@ class TimeEntry:
             self.account = DEFAULT_ACCOUNT
         if not self.comment:
             self.comment = ''
-        self.timestamp = datetime.datetime.today()
+        self.timestamp: datetime.datetime = datetime.datetime.today()
+        self.date_str: str = self.timestamp.strftime("%Y/%m/%d")
+        self.cat_str = CATEGORIES[self.category]
+        self.acct_str = ACCOUNTS[self.account]
 
-    def to_csv(self):
-        csv_str = f"{self.hours},{self.category},{self.account},{self.comment}"
+    def __repr__(self):
+        tsv_str: str = f"{self.date_str},{self.hours},{self.account},{self.category},{self.comment}"
+        return tsv_str
+
+    @property
+    def tsv_str(self):
+        tsv_str: str = f"{self.date_str}\t{self.hours}\t{self.acct_str}\t{self.cat_str}\t{self.comment}\n"
+        return tsv_str
+
+    def __str__(self):
+        self_str: str = f"{self.date_str}\t{self.hours}\t{self.acct_str}\t{self.cat_str}\t{self.comment}"
+        return self_str
 
 class ConsoleSession:
     def __init__(self) -> None:
-        self.output: List[str] = []
+        self.time_entries: List[TimeEntry] = []
         self.command_list: Dict[str, Callable] = {
             "A": self.add_entry,  # default command
             "C": self.copy_output,
@@ -87,25 +101,34 @@ class ConsoleSession:
         }
         exit.__doc__ = "Quit"
 
-    def add_entry(self, *args):
+    def add_entry(self, *args) -> None:
         """Add a time entry."""
-        raise NotImplementedError
+        self.time_entries.append(TimeEntry(*args))
+        print(self.time_entries[-1])
 
     def copy_output(self, *args):
         """Copy output to clipboard."""
-        raise NotImplementedError
+        output_str = ''
+        for entry in self.time_entries:
+            output_str += entry.tsv_str
 
-    def preview_output(self, *args):
+        pyperclip.copy(output_str)
+        print("TSV Output copied to clipboard.")
+
+    def preview_output(self, *args) -> None:
         """Preview output."""
-        raise NotImplementedError
+        print("DATE\t\tHOURS\tACCOUNT\t\tCATEGORY\t\tCOMMENT")
+        for entry in self.time_entries:
+            print(entry)
+        print(f"TOTAL\t\t{self.total_hours}")
 
     def undo_last(self, *args):
         """Undo last entry."""
-        self.output = self.output[:-1]
+        self.time_entries = self.time_entries[:-1]
 
     def clear(self, *args) -> None:
         """Delete all entered data."""
-        self.output = []
+        self.time_entries = []
 
     def display_accounts(self, *args):
         """Display avalable charge account codes."""
@@ -119,6 +142,10 @@ class ConsoleSession:
         """Display this help message"""
         for cmd, function in self.command_list.items():
             print(f"{cmd}\t-\t{function.__doc__}")
+
+    @property
+    def total_hours(self):
+        return sum([entry.hours for entry in self.time_entries])
 
 def parse_user_input(
     command_list: Dict[str, Callable],
