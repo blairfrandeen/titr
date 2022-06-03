@@ -8,7 +8,26 @@ def test_fill_hours():
     assert titr.fill_hours([3, 4], 6) == [3 - 3/7, 4-4/7]
     assert titr.fill_hours([1,2,3], 7) == [7/6, 14/6, 3.5]
 
-def test_parse():
+@pytest.fixture
+def console():
+    cs = titr.ConsoleSession()
+    yield cs
+
+def test_clear(console):
+    console.output = ['something,','something else']
+    console.clear()
+    assert console.output == []
+
+def test_undo(console):
+    console.output = ['something,','something else']
+    console.undo_last()
+    assert console.output == ['something,']
+    console.undo_last()
+    assert console.output == []
+    console.undo_last()
+    assert console.output == []
+
+def test_parse(console):
     invalid_args = [
         None,
         0,
@@ -45,27 +64,27 @@ def test_parse():
     }
     for arg in invalid_args:
         with pytest.raises(TypeError):
-            titr.parse_command(arg)
+            titr.parse_user_input(arg)
 
     for cmd in invalid_commands:
         with pytest.raises(ValueError):
-            titr.parse_command(cmd)
+            titr.parse_user_input(console.command_list, cmd)
 
     with pytest.raises(ValueError) as excinfo:
-        titr.parse_command("-9;3;o")
+        titr.parse_user_input(console.command_list, "-9;3;o")
     assert "Hours must be positive" in str(excinfo.value)
 
     with pytest.raises(ValueError) as excinfo:
-        titr.parse_command("99;2;g")
+        titr.parse_user_input(console.command_list, "99;2;g")
     assert "You're working too much." in str(excinfo.value)
 
     with pytest.raises(ValueError) as excinfo:
-        titr.parse_command("1;39;o")
+        titr.parse_user_input(console.command_list, "1;39;o")
     assert "Unknown category" in str(excinfo.value)
 
     with pytest.raises(ValueError) as excinfo:
-        titr.parse_command("1;2;z")
+        titr.parse_user_input(console.command_list, "1;2;z")
     assert "Unknown account" in str(excinfo.value)
 
     for cmd, exp_result in valid_commands.items():
-        assert titr.parse_command(cmd) == exp_result
+        assert titr.parse_user_input(console.command_list, cmd) == exp_result
