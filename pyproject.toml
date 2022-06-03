@@ -1,0 +1,3 @@
+[tool.pytest.ini_options]
+addopts = "-v -p no:faulthandler --cov --cov-report term-missing"
+pythonpath = "."
