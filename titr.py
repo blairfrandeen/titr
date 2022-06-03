@@ -30,7 +30,7 @@ ACCOUNTS: Dict[str, str] = {
 }
 
 
-def main() -> None:
+def main(test_flag=False) -> None:
     print("Welcome to titr.")
     cs = ConsoleSession()
     cs.help_msg()
@@ -40,13 +40,13 @@ def main() -> None:
         try:
             command, args = parse_user_input(cs.command_list, user_command)
             if command and args:
-                cs.command_list[command](*args)
+                cs.command_list[command](*args) # pragma: no cover
             elif command:
                 cs.command_list[command]()
         except ValueError as e:
             print("Invalid command: ", e)
-        except NotImplementedError:
-            print("Command not implemented yet.")
+        if test_flag:
+            break
 
 
 class TimeEntry:
@@ -77,13 +77,14 @@ class TimeEntry:
         return tsv_str
 
     @property
-    def tsv_str(self):
+    def tsv_str(self): # pragma: no cover
         tsv_str: str = f"{self.date_str}\t{self.hours}\t{self.acct_str}\t{self.cat_str}\t{self.comment}\n"
         return tsv_str
 
-    def __str__(self):
+    def __str__(self): # pragma: no cover
         self_str: str = f"{self.date_str}\t{self.hours}\t{self.acct_str}\t{self.cat_str}\t{self.comment}"
         return self_str
+
 
 class ConsoleSession:
     def __init__(self) -> None:
@@ -94,8 +95,8 @@ class ConsoleSession:
             "P": self.preview_output,
             "Z": self.undo_last,
             "D": self.clear,
-            "W": self.display_accounts,
-            "T": self.display_categories,
+            "W": display_accounts,
+            "T": display_categories,
             "H": self.help_msg,
             "Q": exit,
         }
@@ -130,14 +131,6 @@ class ConsoleSession:
         """Delete all entered data."""
         self.time_entries = []
 
-    def display_accounts(self, *args):
-        """Display avalable charge account codes."""
-        disp_dict(ACCOUNTS)
-
-    def display_categories(self, *args):
-        """Display available category codes."""
-        disp_dict(CATEGORIES)
-
     def help_msg(self, *args):
         """Display this help message"""
         for cmd, function in self.command_list.items():
@@ -146,6 +139,15 @@ class ConsoleSession:
     @property
     def total_hours(self):
         return sum([entry.hours for entry in self.time_entries])
+
+
+def display_accounts(): # pragma: no cover
+    """Display avalable charge account codes."""
+    disp_dict(ACCOUNTS)
+
+def display_categories(): # pragma: no cover
+    """Display available category codes."""
+    disp_dict(CATEGORIES)
 
 def parse_user_input(
     command_list: Dict[str, Callable],
@@ -211,7 +213,7 @@ def parse_user_input(
 
     return command, arguments
 
-def disp_dict(dictionary: dict):
+def disp_dict(dictionary: dict):# pragma: no cover
     """Display items in a dict"""
     for key, value in dictionary.items():
         print(f"{key}: {value}")
