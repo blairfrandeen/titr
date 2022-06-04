@@ -36,15 +36,6 @@ ACCOUNTS: Dict[str, str] = {
 }
 
 
-def main(test_flag=False) -> None:
-    print("Welcome to titr.")
-    cs = ConsoleSession()
-    while True:
-        cs.get_user_input()
-        if test_flag:
-            break
-
-
 class TimeEntry:
     def __init__(
         self,
@@ -253,73 +244,11 @@ def display_accounts(): # pragma: no cover
     """Display avalable charge account codes."""
     disp_dict(ACCOUNTS)
 
+
 def display_categories(): # pragma: no cover
     """Display available category codes."""
     disp_dict(CATEGORIES)
 
-def parse_user_input(
-    command_list: Dict[str, Callable],
-    user_command: str) -> None:
-    """
-    Parse user commands. Return the command and
-    a tuple of arguments. Commands & arguments
-    are separated by a semicolon. The logic:
-    - If the first split is a char, look for that command
-    - If the first split is not a char, apply a default command
-    - Remaining splits in the following order:
-    - duration Worked, Work Type, Work Account, Comment
-    - If no entry for type, account or comment, apply defaults.
-    """
-    if not isinstance(user_command, str):
-        raise TypeError
-
-    args: List[str] = user_command.split(";")
-
-    command: Optional[str] = None
-    duration: Optional[float] = None
-    category: Optional[int] = None
-    account: Optional[str] = None
-    comment: Optional[str] = None
-
-    if args[0].isalpha():
-        if len(args[0]) > 1:
-            raise ValueError("Command should be single letter.")
-        elif args[0].upper() in command_list.keys():
-            command = args[0].upper()
-            return command, None
-        else:
-            raise ValueError("Command not found.")
-    elif args[0] == '':
-        return None, None
-    else:
-        command = "A"
-        duration = float(args[0])
-        if duration < 0:
-            raise ValueError("duration must be positive")
-        elif duration > MAX_duration:
-            raise ValueError("You're working too much.")
-
-        if len(args) > 1 and args[1] != "":
-            category = int(args[1])
-            if category not in CATEGORIES.keys():
-                raise ValueError("Unknown category")
-
-        if len(args) > 2 and args[2] != "":
-            account = args[2].upper()
-            if account not in ACCOUNTS.keys():
-                raise ValueError("Unknown account")
-
-        if len(args) > 3 and args[3] != "":
-            comment = args[3]
-
-    arguments: Tuple[
-        Optional[float],
-        Optional[int],
-        Optional[str],
-        Optional[str],
-    ] = (duration, category, account, comment)
-
-    return command, arguments
 
 def disp_dict(dictionary: dict):# pragma: no cover
     """Display items in a dict"""
@@ -336,6 +265,14 @@ def is_float(item: str) -> bool:
         return True
     except ValueError:
         return False
+
+
+def main() -> None:
+    print("Welcome to titr.")
+    cs = ConsoleSession()
+    while True:
+        cs.get_user_input()
+
 
 
 if __name__ == "__main__":
