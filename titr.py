@@ -39,18 +39,8 @@ ACCOUNTS: Dict[str, str] = {
 def main(test_flag=False) -> None:
     print("Welcome to titr.")
     cs = ConsoleSession()
-    cs.help_msg()
-    user_command: str = ""
-    while user_command != "q":
-        user_command = input("> ")
-        try:
-            command, args = parse_user_input(cs.command_list, user_command)
-            if command and args:
-                cs.command_list[command](*args) # pragma: no cover
-            elif command:
-                cs.command_list[command]()
-        except ValueError as e:
-            print("Invalid command: ", e)
+    while True:
+        cs.get_user_input()
         if test_flag:
             break
 
@@ -59,24 +49,19 @@ class TimeEntry:
     def __init__(
         self,
         duration: float,
-        category: Optional[int],
-        account: Optional[str],
-        comment: Optional[str],
+        category: int = DEFAULT_CATEGORY,
+        account: str = DEFAULT_ACCOUNT,
+        comment: str = '',
     ) -> None:
         self.duration: float = duration
         self.category: Optional[int] = category
         self.account: Optional[str] = account
         self.comment: Optional[str] = comment
-        if not self.category:
-            self.category = DEFAULT_CATEGORY
-        if not self.account:
-            self.account = DEFAULT_ACCOUNT
-        if not self.comment:
-            self.comment = ''
+
         self.timestamp: datetime.datetime = datetime.datetime.today()
         self.date_str: str = self.timestamp.strftime("%Y/%m/%d")
         self.cat_str = CATEGORIES[self.category]
-        self.acct_str = ACCOUNTS[self.account]
+        self.acct_str = ACCOUNTS[self.account.upper()]
 
     def __repr__(self):
         tsv_str: str = f"{self.date_str},{self.duration},{self.account},{self.category},{self.comment}"
@@ -96,7 +81,7 @@ class ConsoleSession:
     def __init__(self) -> None:
         self.time_entries: List[TimeEntry] = []
         self.command_list: Dict[str, Callable] = {
-            "A": self.add_entry,  # default command
+            "<duration>": self.add_entry,  # default command
             "C": self.copy_output,
             "P": self.preview_output,
             "Z": self.undo_last,
@@ -109,22 +94,122 @@ class ConsoleSession:
         }
         exit.__doc__ = "Quit"
 
-    def scale_time_entries(self, target_total: float = 9) -> None:
+    def get_user_input(self) -> None:
+        user_input: str = input('> ').lower().split(' ')
+        match user_input:
+            case[str(duration), *entry_args] if is_float(duration):
+                duration = float(duration)
+                match entry_args:
+                    # No arguments, add entry with all defaults
+                    case ([] | '' | None):
+                        self.add_entry(duration)
+                    # All arguments including comment
+                    case (str(cat_key), str(account), *comment) if (
+                            is_float(cat_key) and
+                            int(cat_key) in CATEGORIES.keys() and
+                            account.upper() in ACCOUNTS.keys()
+                        ):
+                        self.add_entry(
+                            duration,
+                            category=int(cat_key),
+                            account=account,
+                            comment=' '.join(comment)
+                        )
+                    # Category argument, no account argument
+                    case (str(cat_key), str(account), *comment) if (
+                            is_float(cat_key) and
+                            int(cat_key) in CATEGORIES.keys()
+                        ):
+                        self.add_entry(
+                            duration,
+                            category=int(cat_key),
+                            comment=account + ' ' + ' '.join(comment)
+                        )
+                    # Account argument, no category argument
+                    case (str(account), *comment) if (
+                            not is_float(account) and
+                            account.upper() in ACCOUNTS.keys()
+                        ):
+                        self.add_entry(
+                            duration,
+                            account=account,
+                            comment=' '.join(comment)
+                        )
+                    # Comment only
+                    case (str(cat_key), str(account), *comment) if (
+                            not is_float(cat_key) and
+                            account.upper() not in ACCOUNTS.keys()
+                        ):
+                        self.add_entry(
+                            duration,
+                            comment=cat_key + ' ' + account + ' ' + ' '.join(comment)
+                        )
+                    case _:
+                        print('Invalid arguments for time entry')
+            case['clear', *_]:
+                self.clear()
+            case['clip', *_]:
+                self.copy_output()
+            case['c' | 'commit', *_]:
+                print('not implemented')
+            case['d' | 'date', str(datestr), *_]:
+                print('not implemented')
+            case['ls' | 'list', str(list_target)]:
+                match list_target:
+                    case('accounts' | 'wams' | 'a' | 'w'):
+                        display_accounts()
+                    case('cats' | 'c' | 'categories'):
+                        display_categories()
+                    case _:
+                        print("Invalid argument, use 'ls accounts' or 'ls categories'")
+            case['p' | 'preview', *_]:
+                self.preview_output()
+            case['s' | 'scale', str(scale_target), *_]:
+                if is_float(scale_target):
+                    self.scale_time_entries(float(scale_target))
+                else:
+                    print('Inavlid argument, must be float')
+            case['z' | 'undo', *_]:
+                self.undo_last()
+            case['q' | 'quit', *_]:
+                exit(0)
+            case['h' | 'help']:
+                self.help_msg()
+            case['h' | 'help', str(command)]:
+                self.help_msg(command)
+            case['']:
+                pass # no input => no output
+            case _:
+                print('Invalid input')
+
+    def scale_time_entries(self, target_total) -> None:
         """Scale time entries by weighted average to sum to a target total duration."""
         unscaled_total: float = sum([entry.duration for entry in self.time_entries])
         scale_amount: float = target_total - unscaled_total
         if scale_amount == 0:
             return None
+        if unscaled_total == 0:
+            print("No entries to scale / cannot scale from zero.")
+            return None
 
+        print(f"Scaling from {unscaled_total} hours to {target_total} hours.")
         for entry in self.time_entries:
             entry.duration = entry.duration + scale_amount * entry.duration / unscaled_total
 
-    def add_entry(self, *args) -> None:
-        """Add a time entry."""
-        self.time_entries.append(TimeEntry(*args))
+    def add_entry(self, duration, **kwargs) -> None:
+        """Add a time entry.
+
+        Format:
+        <duration> [ work_mode | account | comment]
+        Example:
+        .3 2 I Incidental deep work
+        2 g Two hours shallow work as group lead
+        1 One hour, default account, default mode
+        1 5 One hour meeting default account"""
+        self.time_entries.append(TimeEntry(duration, **kwargs))
         print(self.time_entries[-1])
 
-    def copy_output(self, *args):
+    def copy_output(self):
         """Copy output to clipboard."""
         output_str = ''
         for entry in self.time_entries:
@@ -133,25 +218,31 @@ class ConsoleSession:
         pyperclip.copy(output_str)
         print("TSV Output copied to clipboard.")
 
-    def preview_output(self, *args) -> None:
+    def preview_output(self) -> None:
         """Preview output."""
         print("DATE\t\tduration\tACCOUNT\t\tCATEGORY\t\tCOMMENT")
         for entry in self.time_entries:
             print(entry)
         print(f"TOTAL\t\t{self.total_duration}")
 
-    def undo_last(self, *args):
+    def undo_last(self):
         """Undo last entry."""
         self.time_entries = self.time_entries[:-1]
 
-    def clear(self, *args) -> None:
+    def clear(self) -> None:
         """Delete all entered data."""
         self.time_entries = []
 
-    def help_msg(self, *args):
-        """Display this help message"""
-        for cmd, function in self.command_list.items():
-            print(f"{cmd}\t-\t{function.__doc__}")
+    def help_msg(self, command=None):
+        """Display this help message. Type help <command> for detail."""
+        if not command:
+            for cmd, function in self.command_list.items():
+                summary_doc = function.__doc__.split('\n')[0]
+                print(f"{cmd}\t-\t{summary_doc}")
+        elif command.upper() in self.command_list.keys():
+            print(self.command_list[command].__doc__)
+        else:
+            print("Invalid command.")
 
     @property
     def total_duration(self):
