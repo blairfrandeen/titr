@@ -2,13 +2,6 @@ import pytest
 import titr
 import pyperclip
 
-def test_scale_duration():
-    assert titr.scale_duration([2, 2], 5) == [2.5, 2.5]
-    assert titr.scale_duration([2, 2], 4) == [2, 2]
-    assert titr.scale_duration([2, ], 5) == [5]
-    assert titr.scale_duration([3, 4], 6) == [3 - 3/7, 4-4/7]
-    assert titr.scale_duration([1,2,3], 7) == [7/6, 14/6, 3.5]
-
 @pytest.fixture
 def console():
     cs = titr.ConsoleSession()
@@ -18,6 +11,25 @@ def console():
 def time_entry():
     te = titr.TimeEntry(2, 2, None, 'test entry')
     yield te
+
+def test_scale_duration(console):
+    # initial list, scale total, final list
+    scale_tests = [
+        ([2, 2], 5, [2.5, 2.5]),
+        ([2, 2], 4, [2, 2]),
+        ([2, ], 5, [5]),
+        ([3, 4], 6, [3 - 3/7, 4-4/7]),
+        ([1,2,3], 7, [7/6, 14/6, 3.5]),
+    ]
+    for test in scale_tests:
+        console.time_entries = []
+        for duration in test[0]:
+            console.time_entries.append(
+                titr.TimeEntry(duration, None, None, None))
+        console.scale_time_entries(test[1])
+        for index, entry in enumerate(console.time_entries):
+            print(entry, index)
+            assert entry.duration == test[2][index]
 
 def test_preview(console, time_entry, capsys):
     console.time_entries.append(time_entry)
