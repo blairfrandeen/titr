@@ -236,6 +236,17 @@ def disp_dict(dictionary: dict):# pragma: no cover
         print(f"{key}: {value}")
 
 
+def is_float(item: str) -> bool:
+    """Determine if a string represents a float."""
+    if not isinstance(item, (str, int, float)):
+        raise TypeError
+    try:
+        float(item)
+        return True
+    except ValueError:
+        return False
+
+
 if __name__ == "__main__":
     main()
 
