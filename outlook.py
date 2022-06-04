@@ -1,4 +1,4 @@
-import win32com.client as w32
+import win32com.client
 import datetime
 
 # User defaults to connect to proper calendar
@@ -16,16 +16,15 @@ BUSY_STATUS = {
 MAPI_TIME_FORMAT = "%m-%d-%Y %I:%M %p"
 
 # Connect to Outlook MAPI (Mail API)
-outlook = w32.Dispatch("Outlook.Application").GetNamespace("MAPI")
+outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
 
 # Connect to calendar
 calendar = outlook.Folders.Item(OUTLOOK_ACCOUNT).Folders[OUTLOOK_CAL_NAME]
 
 # Filter for events in a single day
-target_date = '2022-06-02'
+target_date = '2022-06-03'
 target_date = datetime.datetime.fromisoformat(target_date)
-num_days = 1
-search_end = target_date + datetime.timedelta(days=num_days)
+search_end = target_date + datetime.timedelta(days=1)
 res_str = ''.join([
         "[Start] >= '",
         target_date.strftime(MAPI_TIME_FORMAT),
@@ -33,11 +32,11 @@ res_str = ''.join([
         search_end.strftime(MAPI_TIME_FORMAT),
         "'",
         ])
-
 cal_filtered = calendar.Items.Restrict(res_str)
-cal_filtered.Sort("[Start]", False)
-for item in cal_filtered:
 
+# Sort events in chronological order
+cal_filtered.Sort("[Start]")
+for item in cal_filtered:
     print(
         item.Subject,       # meeting title
         item.Start.strftime("%X"),         # start time, datetime
