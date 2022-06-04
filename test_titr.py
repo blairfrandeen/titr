@@ -2,12 +2,12 @@ import pytest
 import titr
 import pyperclip
 
-def test_fill_hours():
-    assert titr.fill_hours([2, 2], 5) == [2.5, 2.5]
-    assert titr.fill_hours([2, 2], 4) == [2, 2]
-    assert titr.fill_hours([2, ], 5) == [5]
-    assert titr.fill_hours([3, 4], 6) == [3 - 3/7, 4-4/7]
-    assert titr.fill_hours([1,2,3], 7) == [7/6, 14/6, 3.5]
+def test_scale_duration():
+    assert titr.scale_duration([2, 2], 5) == [2.5, 2.5]
+    assert titr.scale_duration([2, 2], 4) == [2, 2]
+    assert titr.scale_duration([2, ], 5) == [5]
+    assert titr.scale_duration([3, 4], 6) == [3 - 3/7, 4-4/7]
+    assert titr.scale_duration([1,2,3], 7) == [7/6, 14/6, 3.5]
 
 @pytest.fixture
 def console():
@@ -33,7 +33,7 @@ def test_copy(console, time_entry):
 
 def test_add_entry(console, time_entry):
     console.add_entry(2, 2, None, 'test entry')
-    assert console.time_entries[-1].hours == 2
+    assert console.time_entries[-1].duration == 2
     assert console.time_entries[-1].comment == 'test entry'
 
 def test_time_entry():
@@ -123,7 +123,7 @@ def test_parse(console):
 
     with pytest.raises(ValueError) as excinfo:
         titr.parse_user_input(console.command_list, "-9;3;o")
-    assert "Hours must be positive" in str(excinfo.value)
+    assert "duration must be positive" in str(excinfo.value)
 
     with pytest.raises(ValueError) as excinfo:
         titr.parse_user_input(console.command_list, "99;2;g")

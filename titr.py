@@ -4,12 +4,16 @@
 titr - pronounced 'titter'
 
 A time tracker CLI.
+https://github.com/blairfrandeen/titr
 """
+
 import datetime
 import pyperclip
 from typing import Optional, Tuple, Dict, List, Callable
 
-MAX_HOURS: float = 9  # maximum hours that can be entered for any task
+# TODO: Move all defaults to user-editable config file
+# Write function to load configuration
+MAX_duration: float = 9  # maximum duration that can be entered for any task
 DEFAULT_CATEGORY: int = 6
 DEFAULT_ACCOUNT: str = 'O'
 
@@ -27,6 +31,8 @@ ACCOUNTS: Dict[str, str] = {
     "O": "OS",
     "G": "Group Lead",
     "I": "Incidental",
+    "T": "Time Tracker",
+    "N": "Non-Productive Effort",
 }
 
 
@@ -52,12 +58,12 @@ def main(test_flag=False) -> None:
 class TimeEntry:
     def __init__(
         self,
-        hours: float,
+        duration: float,
         category: Optional[int],
         account: Optional[str],
         comment: Optional[str],
     ) -> None:
-        self.hours: float = hours
+        self.duration: float = duration
         self.category: Optional[int] = category
         self.account: Optional[str] = account
         self.comment: Optional[str] = comment
@@ -73,16 +79,16 @@ class TimeEntry:
         self.acct_str = ACCOUNTS[self.account]
 
     def __repr__(self):
-        tsv_str: str = f"{self.date_str},{self.hours},{self.account},{self.category},{self.comment}"
+        tsv_str: str = f"{self.date_str},{self.duration},{self.account},{self.category},{self.comment}"
         return tsv_str
 
     @property
     def tsv_str(self): # pragma: no cover
-        tsv_str: str = f"{self.date_str}\t{self.hours}\t{self.acct_str}\t{self.cat_str}\t{self.comment}\n"
+        tsv_str: str = f"{self.date_str}\t{self.duration}\t{self.acct_str}\t{self.cat_str}\t{self.comment}\n"
         return tsv_str
 
     def __str__(self): # pragma: no cover
-        self_str: str = f"{self.date_str}\t{self.hours}\t{self.acct_str}\t{self.cat_str}\t{self.comment}"
+        self_str: str = f"{self.date_str}\t{self.duration}\t{self.acct_str}\t{self.cat_str}\t{self.comment}"
         return self_str
 
 
@@ -95,12 +101,23 @@ class ConsoleSession:
             "P": self.preview_output,
             "Z": self.undo_last,
             "D": self.clear,
+            "S": self.scale_time_entries,
             "W": display_accounts,
             "T": display_categories,
             "H": self.help_msg,
             "Q": exit,
         }
         exit.__doc__ = "Quit"
+
+    def scale_time_entries(self, target_total: float = 9) -> None:
+        """Scale time entries by weighted average to sum to a target total duration."""
+        unscaled_total: float = sum([entry.duration for entry in self.time_entries])
+        scale_amount: float = target_total - unscaled_total
+        if scale_amount == 0:
+            return None
+
+        for entry in self.time_entries:
+            entry.duration = entry.duration + scale_amount * entry.duration / unscaled_total
 
     def add_entry(self, *args) -> None:
         """Add a time entry."""
@@ -118,10 +135,10 @@ class ConsoleSession:
 
     def preview_output(self, *args) -> None:
         """Preview output."""
-        print("DATE\t\tHOURS\tACCOUNT\t\tCATEGORY\t\tCOMMENT")
+        print("DATE\t\tduration\tACCOUNT\t\tCATEGORY\t\tCOMMENT")
         for entry in self.time_entries:
             print(entry)
-        print(f"TOTAL\t\t{self.total_hours}")
+        print(f"TOTAL\t\t{self.total_duration}")
 
     def undo_last(self, *args):
         """Undo last entry."""
@@ -137,8 +154,8 @@ class ConsoleSession:
             print(f"{cmd}\t-\t{function.__doc__}")
 
     @property
-    def total_hours(self):
-        return sum([entry.hours for entry in self.time_entries])
+    def total_duration(self):
+        return sum([entry.duration for entry in self.time_entries])
 
 
 def display_accounts(): # pragma: no cover
@@ -159,7 +176,7 @@ def parse_user_input(
     - If the first split is a char, look for that command
     - If the first split is not a char, apply a default command
     - Remaining splits in the following order:
-    - Hours Worked, Work Type, Work Account, Comment
+    - duration Worked, Work Type, Work Account, Comment
     - If no entry for type, account or comment, apply defaults.
     """
     if not isinstance(user_command, str):
@@ -168,7 +185,7 @@ def parse_user_input(
     args: List[str] = user_command.split(";")
 
     command: Optional[str] = None
-    hours: Optional[float] = None
+    duration: Optional[float] = None
     category: Optional[int] = None
     account: Optional[str] = None
     comment: Optional[str] = None
@@ -185,10 +202,10 @@ def parse_user_input(
         return None, None
     else:
         command = "A"
-        hours = float(args[0])
-        if hours < 0:
-            raise ValueError("Hours must be positive")
-        elif hours > MAX_HOURS:
+        duration = float(args[0])
+        if duration < 0:
+            raise ValueError("duration must be positive")
+        elif duration > MAX_duration:
             raise ValueError("You're working too much.")
 
         if len(args) > 1 and args[1] != "":
@@ -209,7 +226,7 @@ def parse_user_input(
         Optional[int],
         Optional[str],
         Optional[str],
-    ] = (hours, category, account, comment)
+    ] = (duration, category, account, comment)
 
     return command, arguments
 
@@ -218,19 +235,7 @@ def disp_dict(dictionary: dict):# pragma: no cover
     for key, value in dictionary.items():
         print(f"{key}: {value}")
 
-def fill_hours(hours: List[float], target: float) -> List[float]:
-    total = sum(hours)
-    difference = target - total
-    if difference == 0:
-        return hours
-
-    for index, item in enumerate(hours):
-        hours[index] = item + difference * item / total
-
-    assert sum(hours) == target
-
-    return hours
-
 
 if __name__ == "__main__":
     main()
+
