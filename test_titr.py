@@ -9,7 +9,7 @@ def console():
 
 @pytest.fixture
 def time_entry():
-    te = titr.TimeEntry(2, 2, None, 'test entry')
+    te = titr.TimeEntry(2, category=6, comment='test entry')
     yield te
 
 def test_is_float():
@@ -44,7 +44,7 @@ def test_scale_duration(console):
         console.time_entries = []
         for duration in test[0]:
             console.time_entries.append(
-                titr.TimeEntry(duration, None, None, None))
+                titr.TimeEntry(duration))
         console.scale_time_entries(test[1])
         for index, entry in enumerate(console.time_entries):
             print(entry, index)
@@ -63,12 +63,12 @@ def test_copy(console, time_entry):
 
 
 def test_add_entry(console, time_entry):
-    console.add_entry(2, 2, None, 'test entry')
+    console.add_entry(2, category=4, account='N', comment='test entry')
     assert console.time_entries[-1].duration == 2
     assert console.time_entries[-1].comment == 'test entry'
 
 def test_time_entry():
-    te = titr.TimeEntry(2,None,None,None)
+    te = titr.TimeEntry(2)
     assert te.category == titr.DEFAULT_CATEGORY
     assert te.account == titr.DEFAULT_ACCOUNT
     assert te.comment == ''
@@ -91,22 +91,6 @@ def test_main(monkeypatch, capsys):
     monkeypatch.setattr('builtins.input', lambda _: 'q')
     with pytest.raises(SystemExit):
         titr.main()
-
-    #  monkeypatch.setattr('builtins.input', lambda _: 'w')
-    #  def _mock_disp():
-        #  print('display mocked')
-    #  monkeypatch.setattr(titr, 'display_accounts', _mock_disp)
-    #  titr.main()
-    #  captured = capsys.readouterr()
-    #  assert "display mocked" in captured.out
-
-    with pytest.raises(SystemExit):
-        titr.main()
-    monkeypatch.setattr('builtins.input', lambda _: 'banana')
-    titr.main(test_flag=True)
-    captured = capsys.readouterr()
-    assert "Invalid command" in captured.out
-
 
 def test_parse(console):
     invalid_args = [
