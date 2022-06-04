@@ -12,6 +12,25 @@ def time_entry():
     te = titr.TimeEntry(2, 2, None, 'test entry')
     yield te
 
+def test_is_float():
+    not_floats = ['yankee', 'doodle', 'foxtrot', '*@(#!)']
+    for item in not_floats:
+        assert titr.is_float(item) is False
+
+    floats = ['.34', '0.2919', '-23.4', '0', '-0', '99', '4e5', 'inf']
+    for item in floats:
+        assert titr.is_float(item)
+
+    more_floats = ['5', 5, 5.3, -4.23e-5, False, 'NaN']
+    for item in more_floats:
+        assert titr.is_float(item)
+
+    definitely_not_floats = [[1,2,3], {1: 'hi'}, None]
+    for item in definitely_not_floats:
+        with pytest.raises(TypeError):
+            titr.is_float(item)
+
+
 def test_scale_duration(console):
     # initial list, scale total, final list
     scale_tests = [
