@@ -84,7 +84,7 @@ class ConsoleSession:
             'preview':  (["p", "preview"],  self.preview_output),
             'undo':     (["z", "undo"],     self.undo_last),
             'scale':    (["s", "scale"],    self.scale_time_entries),
-            'list':     (["ls", "list"],    display_accounts),
+            'list':     (["ls", "list"],    self.list_categories_and_accounts),
             'help':     (["h", "help"],     self.help_msg),
             'quit':     (["q", "quit"],     exit),
         }
@@ -115,14 +115,8 @@ class ConsoleSession:
                 raise NotImplementedError
             case[alias, *_] if self._is_alias(alias, 'date'):
                 raise NotImplementedError
-            case[alias, str(list_target)] if self._is_alias(alias, 'list'):
-                match list_target:
-                    case('accounts' | 'wams' | 'a' | 'w'):
-                        display_accounts()
-                    case('cats' | 'c' | 'categories'):
-                        display_categories()
-                    case _:
-                        raise ValueError("Invalid argument; use 'ls accounts' or 'ls categories'")
+            case[alias, *_] if self._is_alias(alias, 'list'):
+                self.list_categories_and_accounts()
             case[alias, *_] if self._is_alias(alias, 'preview'):
                 self.preview_output()
             case[alias, str(scale_target)] if self._is_alias(alias, 'scale'):
@@ -243,8 +237,8 @@ class ConsoleSession:
         else:
             for _, function in self.command_list.items():
                 # ignore non-implemented functions
-                if function[1] is None:
-                    continue
+                if function[1] is None: # pragma: no cover
+                    continue # pragma: no cover
                 summary_doc = function[1].__doc__.split('\n')[0]
                 print(f"{function[0]}\t-\t{summary_doc}")
 
@@ -273,19 +267,15 @@ class ConsoleSession:
         # documentation only function
         pass
 
+    def list_categories_and_accounts(self):
+        """Display available category & account codes."""
+        for dictionary, name in [(ACCOUNTS, 'ACCOUNTS'), (CATEGORIES, 'CATEGORIES')]: # pragma: no cover
+            disp_dict(dictionary, name)
 
-def display_accounts(): # pragma: no cover
-    """Display avalable charge account codes."""
-    disp_dict(ACCOUNTS)
-
-
-def display_categories(): # pragma: no cover
-    """Display available category codes."""
-    disp_dict(CATEGORIES)
-
-
-def disp_dict(dictionary: dict):# pragma: no cover
+def disp_dict(dictionary: dict, dict_name: str):# pragma: no cover
     """Display items in a dict"""
+    print(f"{dict_name}: ")
+    print("--------------")
     for key, value in dictionary.items():
         print(f"{key}: {value}")
 

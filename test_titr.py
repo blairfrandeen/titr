@@ -145,6 +145,27 @@ def test_parse_new_entry(console, monkeypatch):
         with pytest.raises(ValueError):
             console._parse_new_entry(entry[0], *entry[1])
 
+def test_help_msg(console, monkeypatch, capsys):
+    def _add_entry(): # pragma: no cover
+        """add"""
+        return None
+    def _clear(): # pragma: no cover
+        """clear"""
+        return None
+    _command_list: Dict[str, Tuple[List[str], Callable]] = {
+        'add':      (['add'],           _add_entry),
+        'clear':    (["clear"],         _clear),
+    }
+    monkeypatch.setattr(console, "command_list", _command_list)
+    console.help_msg()
+    captured = capsys.readouterr()
+    assert "['add']" in captured.out
+
+    for cmd in _command_list.keys():
+        console.help_msg(command=cmd)
+        captured = capsys.readouterr()
+        assert cmd in captured.out
+
 def test_get_user_input(console, monkeypatch, capsys):
     invalid_commands = [
         "help, I'm a bug",
@@ -164,6 +185,7 @@ def test_get_user_input(console, monkeypatch, capsys):
             #  'commit':   ['c', 'commit'],
             #  'date':     ['d', 'date'],
             'preview_output':  ["p", "preview"],
+            'list_categories_and_accounts':  ["ls", "list"],
             'undo_last':     ["z", "undo"],
             'scale_time_entries':    ["s 9", "scale 10"],
             'help_msg':     ["h", "help", "help scale", "help date", "add"],
