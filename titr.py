@@ -8,12 +8,16 @@ https://github.com/blairfrandeen/titr
 """
 
 import datetime
-import pyperclip
+try:
+    import pyperclip
+except ModuleNotFoundError: # pragma: no cover
+    pyperclip = None
+
 from typing import Optional, Tuple, Dict, List, Callable
 
 # TODO: Move all defaults to user-editable config file
 # Write function to load configuration
-MAX_duration: float = 9  # maximum duration that can be entered for any task
+MAX_DURATION: float = 9  # maximum duration that can be entered for any task
 DEFAULT_CATEGORY: int = 6
 DEFAULT_ACCOUNT: str = 'O'
 
@@ -45,14 +49,15 @@ class TimeEntry:
         comment: str = '',
     ) -> None:
         self.duration: float = duration
-        self.category: Optional[int] = category
-        self.account: Optional[str] = account
-        self.comment: Optional[str] = comment
+        self.category: int = category
+        self.account: str = account
+        self.comment: str = comment
 
         self.timestamp: datetime.datetime = datetime.datetime.today()
         self.date_str: str = self.timestamp.strftime("%Y/%m/%d")
         self.cat_str = CATEGORIES[self.category]
         self.acct_str = ACCOUNTS[self.account.upper()]
+        print(self)
 
     def __repr__(self):
         tsv_str: str = f"{self.date_str},{self.duration},{self.account},{self.category},{self.comment}"
@@ -85,66 +90,76 @@ class ConsoleSession:
         }
         exit.__doc__ = "Quit"
 
+    def _parse_new_entry(self, duration: float, *entry_args) -> None:
+        match entry_args:
+            # No arguments, add entry with all defaults
+            case ([] | '' | None):
+                self.time_entries.append(TimeEntry(duration))
+            # All arguments including comment
+            case (str(cat_key), str(account), *comment) if (
+                    is_float(cat_key) and
+                    int(cat_key) in CATEGORIES.keys() and
+                    account.upper() in ACCOUNTS.keys()
+                ):
+                self.time_entries.append(TimeEntry(
+                    duration,
+                    category=int(cat_key),
+                    account=account,
+                    comment=' '.join(comment).strip()
+                ))
+            # Category argument, no account argument
+            case (str(cat_key), str(account), *comment) if (
+                    is_float(cat_key) and
+                    int(cat_key) in CATEGORIES.keys()
+                ):
+                self.time_entries.append(TimeEntry(
+                    duration,
+                    category=int(cat_key),
+                    comment=(account + ' ' + ' '.join(comment)).strip()
+                ))
+            # Account argument, no category argument
+            case (str(account), *comment) if (
+                    not is_float(account) and
+                    account.upper() in ACCOUNTS.keys()
+                ):
+                self.time_entries.append(TimeEntry(
+                    duration,
+                    account=account,
+                    comment=' '.join(comment).strip()
+                ))
+            # Comment only
+            case (str(cat_key), str(account), *comment) if (
+                    not is_float(cat_key) and
+                    account.upper() not in ACCOUNTS.keys()
+                ):
+                self.time_entries.append(TimeEntry(
+                    duration,
+                    comment=(cat_key + ' ' + account + ' ' + ' '.join(comment)).strip()
+                ))
+            case _:
+                raise ValueError('Invalid arguments for time entry')
+
+        print(self.time_entries[-1])
+
     def get_user_input(self) -> None:
         user_input: str = input('> ').lower().split(' ')
         match user_input:
             case[str(duration), *entry_args] if is_float(duration):
                 duration = float(duration)
-                match entry_args:
-                    # No arguments, add entry with all defaults
-                    case ([] | '' | None):
-                        self.add_entry(duration)
-                    # All arguments including comment
-                    case (str(cat_key), str(account), *comment) if (
-                            is_float(cat_key) and
-                            int(cat_key) in CATEGORIES.keys() and
-                            account.upper() in ACCOUNTS.keys()
-                        ):
-                        self.add_entry(
-                            duration,
-                            category=int(cat_key),
-                            account=account,
-                            comment=' '.join(comment)
-                        )
-                    # Category argument, no account argument
-                    case (str(cat_key), str(account), *comment) if (
-                            is_float(cat_key) and
-                            int(cat_key) in CATEGORIES.keys()
-                        ):
-                        self.add_entry(
-                            duration,
-                            category=int(cat_key),
-                            comment=account + ' ' + ' '.join(comment)
-                        )
-                    # Account argument, no category argument
-                    case (str(account), *comment) if (
-                            not is_float(account) and
-                            account.upper() in ACCOUNTS.keys()
-                        ):
-                        self.add_entry(
-                            duration,
-                            account=account,
-                            comment=' '.join(comment)
-                        )
-                    # Comment only
-                    case (str(cat_key), str(account), *comment) if (
-                            not is_float(cat_key) and
-                            account.upper() not in ACCOUNTS.keys()
-                        ):
-                        self.add_entry(
-                            duration,
-                            comment=cat_key + ' ' + account + ' ' + ' '.join(comment)
-                        )
-                    case _:
-                        print('Invalid arguments for time entry')
+                if duration > MAX_DURATION:
+                    raise ValueError("You're working too much.")
+                self._parse_new_entry(duration, *entry_args)
             case['clear', *_]:
                 self.clear()
             case['clip', *_]:
-                self.copy_output()
+                if pyperclip is not None:
+                    self.copy_output()
+                else:
+                    raise ImportError('Unable to copy to clipboard.')
             case['c' | 'commit', *_]:
-                print('not implemented')
+                raise NotImplementedError
             case['d' | 'date', str(datestr), *_]:
-                print('not implemented')
+                raise NotImplementedError
             case['ls' | 'list', str(list_target)]:
                 match list_target:
                     case('accounts' | 'wams' | 'a' | 'w'):
@@ -152,14 +167,14 @@ class ConsoleSession:
                     case('cats' | 'c' | 'categories'):
                         display_categories()
                     case _:
-                        print("Invalid argument, use 'ls accounts' or 'ls categories'")
+                        raise ValueError("Invalid argument; use 'ls accounts' or 'ls categories'")
             case['p' | 'preview', *_]:
                 self.preview_output()
             case['s' | 'scale', str(scale_target), *_]:
                 if is_float(scale_target):
                     self.scale_time_entries(float(scale_target))
                 else:
-                    print('Inavlid argument, must be float')
+                    raise TypeError('Invalid argument, scale_target must be float')
             case['z' | 'undo', *_]:
                 self.undo_last()
             case['q' | 'quit', *_]:
@@ -270,9 +285,17 @@ def is_float(item: str) -> bool:
 def main() -> None:
     print("Welcome to titr.")
     cs = ConsoleSession()
-    while True:
-        cs.get_user_input()
-
+    while True: # pragma: no cover
+        try:
+            cs.get_user_input()
+        except ValueError as err:
+            print(f"Error: {err}")
+        except TypeError as err:
+            print(f"Error: {err}")
+        except ImportError as err:
+            print(f"Error: {err}")
+        except NotImplementedError:
+            print('not implemented')
 
 
 if __name__ == "__main__":
