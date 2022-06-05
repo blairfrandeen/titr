@@ -12,6 +12,18 @@ def time_entry():
     te = titr.TimeEntry(2, category=6, comment='test entry')
     yield te
 
+class MockTimeEntry:
+    def __init__(self, duration, account = 'N', category = 5, comment = ''):
+        self.duration = duration
+        self.category = category
+        self.account = account
+        self.comment = comment
+
+    def __str__(self):
+        self_str: str = f"{self.duration}\t{self.category}\t{self.account}\t{self.comment}"
+        return self_str
+
+
 def test_is_float():
     not_floats = ['yankee', 'doodle', 'foxtrot', '*@(#!)']
     for item in not_floats:
@@ -95,17 +107,6 @@ def test_main(monkeypatch, capsys):
         titr.main()
 
 
-class MockTimeEntry:
-    def __init__(self, duration, account = 'N', category = 5, comment = ''):
-        self.duration = duration
-        self.category = category
-        self.account = account
-        self.comment = comment
-
-    def __str__(self):
-        self_str: str = f"{self.duration}\t{self.category}\t{self.account}\t{self.comment}"
-        return self_str
-
 def test_parse_new_entry(console, monkeypatch):
     default_acct = 'N'
     default_cat = 5
@@ -128,7 +129,6 @@ def test_parse_new_entry(console, monkeypatch):
     ]
 
     for entry in valid_time_entries:
-        print(entry)
         duration, arg_str = entry[0], entry[1]
         console.time_entries = []
         console._parse_new_entry(duration, *arg_str)
@@ -150,8 +150,41 @@ def test_get_user_input(console, monkeypatch, capsys):
         "help, I'm a bug",
         ".25*923",
         "Y",
+        "45e12",
     ]
-    other_valid_mmands =[
+    for cmd in invalid_commands:
+        monkeypatch.setattr('builtins.input', lambda _: cmd)
+        with pytest.raises(ValueError):
+            console.get_user_input()
+
+
+    valid_commands = {
+            'clear':    ["clear"],
+            'copy_output':     ["clip"],
+            #  'commit':   ['c', 'commit'],
+            #  'date':     ['d', 'date'],
+            'preview_output':  ["p", "preview"],
+            'undo_last':     ["z", "undo"],
+            'scale_time_entries':    ["s 9", "scale 10"],
+            'help_msg':     ["h", "help", "help scale", "help date", "add"],
+            '_parse_new_entry': ['.5 1 i j', '1 2 g test'],
+            #  'exit':     ["q", "quit"],
+    }
+    for cmd, aliases in valid_commands.items():
+        def _mock_alias_function(*args, **kwargs):
+            print(f"mock alias function: {cmd}")
+        monkeypatch.setattr(console, cmd, _mock_alias_function)
+        for alias in aliases:
+            monkeypatch.setattr('builtins.input', lambda _: alias)
+            console.get_user_input()
+            captured = capsys.readouterr()
+            assert f'mock alias function: {cmd}' in captured.out
+
+    monkeypatch.setattr('builtins.input', lambda _: 'help me!')
+    with pytest.raises(ValueError):
+        console.get_user_input()
+
+    other_valid_commands =[
         ".25 4 q",
         "-53",
         ".5 g g",
@@ -175,8 +208,3 @@ def test_get_user_input(console, monkeypatch, capsys):
         ".5 3 g": ("A", (0.5, 3, "G", None)),
         '.25 5 g "group meeting"': ("A", (0.25, 5, "G", '"group meeting"')),
     }
-    for cmd in invalid_commands:
-        monkeypatch.setattr('builtins.input', lambda _: cmd)
-        console.get_user_input()
-        captured = capsys.readouterr()
-        assert 'Invalid input' in captured.out

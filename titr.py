@@ -145,7 +145,7 @@ class ConsoleSession:
             case['']: # pragma: no cover
                 pass # no input => no output
             case _:
-                print('Invalid input')
+                raise ValueError(f'Invalid input: {user_input}')
 
     def _parse_new_entry(self, duration: float, *entry_args) -> None:
         match entry_args:
