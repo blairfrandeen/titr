@@ -69,11 +69,6 @@ def test_copy(console, time_entry):
     assert 'test entry' in pyperclip.paste()
 
 
-def test_add_entry(console, time_entry):
-    console.add_entry(2, category=4, account='N', comment='test entry')
-    assert console.time_entries[-1].duration == 2
-    assert console.time_entries[-1].comment == 'test entry'
-
 def test_time_entry():
     te = titr.TimeEntry(2)
     assert te.category == titr.DEFAULT_CATEGORY

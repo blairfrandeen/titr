@@ -57,7 +57,6 @@ class TimeEntry:
         self.date_str: str = self.timestamp.strftime("%Y/%m/%d")
         self.cat_str = CATEGORIES[self.category]
         self.acct_str = ACCOUNTS[self.account.upper()]
-        print(self)
 
     def __repr__(self):
         tsv_str: str = f"{self.date_str},{self.duration},{self.account},{self.category},{self.comment}"
@@ -69,26 +68,84 @@ class TimeEntry:
         return tsv_str
 
     def __str__(self): # pragma: no cover
-        self_str: str = f"{self.date_str}\t{self.duration}\t{self.acct_str}\t{self.cat_str}\t{self.comment}"
+        self_str: str = f"{self.date_str}\t{self.duration}\t\t{self.acct_str}\t\t{self.cat_str}\t\t{self.comment}"
         return self_str
 
 
 class ConsoleSession:
     def __init__(self) -> None:
         self.time_entries: List[TimeEntry] = []
-        self.command_list: Dict[str, Callable] = {
-            "<duration>": self.add_entry,  # default command
-            "C": self.copy_output,
-            "P": self.preview_output,
-            "Z": self.undo_last,
-            "D": self.clear,
-            "S": self.scale_time_entries,
-            "W": display_accounts,
-            "T": display_categories,
-            "H": self.help_msg,
-            "Q": exit,
+        self.command_list: Dict[str, Tuple[List[str], Callable]] = {
+            'add':      (['add'],           self._add_entry),
+            'clear':    (["clear"],         self.clear),
+            'clip':     (["clip"],          self.copy_output),
+            'commit':   (['c', 'commit'],   None),      # not implemented
+            'date':     (['d', 'date'],     None),      # not implemented 
+            'preview':  (["p", "preview"],  self.preview_output),
+            'undo':     (["z", "undo"],     self.undo_last),
+            'scale':    (["s", "scale"],    self.scale_time_entries),
+            'list':     (["ls", "list"],    display_accounts),
+            'help':     (["h", "help"],     self.help_msg),
+            'quit':     (["q", "quit"],     exit),
         }
         exit.__doc__ = "Quit"
+
+
+    def _is_alias(self, alias, command):
+        return alias in self.command_list[command][0]
+
+    def get_user_input(self) -> None:
+        user_input: str = input('> ').lower().split(' ')
+        match user_input:
+            case[str(duration), *entry_args] if is_float(duration):
+                duration = float(duration)
+                if duration > MAX_DURATION:
+                    raise ValueError("You're working too much.")
+                self._parse_new_entry(duration, *entry_args)
+            case[alias, *_] if self._is_alias(alias, 'add'):
+                self.help_msg(command='add')
+            case[alias, *_] if self._is_alias(alias, 'clear'):
+                self.clear()
+            case[alias, *_] if self._is_alias(alias, 'clip'):
+                if pyperclip is not None:
+                    self.copy_output()
+                else:
+                    raise ImportError('Unable to copy to clipboard.')
+            case[alias, *_] if self._is_alias(alias, 'commit'):
+                raise NotImplementedError
+            case[alias, *_] if self._is_alias(alias, 'date'):
+                raise NotImplementedError
+            case[alias, str(list_target)] if self._is_alias(alias, 'list'):
+                match list_target:
+                    case('accounts' | 'wams' | 'a' | 'w'):
+                        display_accounts()
+                    case('cats' | 'c' | 'categories'):
+                        display_categories()
+                    case _:
+                        raise ValueError("Invalid argument; use 'ls accounts' or 'ls categories'")
+            case[alias, *_] if self._is_alias(alias, 'preview'):
+                self.preview_output()
+            case[alias, str(scale_target)] if self._is_alias(alias, 'scale'):
+                if is_float(scale_target):
+                    self.scale_time_entries(float(scale_target))
+                else:
+                    raise TypeError('Invalid argument, scale_target must be float')
+            case[alias, *_] if self._is_alias(alias, 'undo'):
+                self.undo_last()
+            case[alias, *_] if self._is_alias(alias, 'quit'):
+                exit(0)
+            case[alias, str(command)] if self._is_alias(alias, 'help'):
+                for name, cmd in self.command_list.items():
+                    if self._is_alias(command, name):
+                        self.help_msg(command=name)
+                        return None
+                raise ValueError("Command not found. Type 'help' for list.")
+            case[alias] if self._is_alias(alias, 'help'):
+                self.help_msg()
+            case['']: # pragma: no cover
+                pass # no input => no output
+            case _:
+                print('Invalid input')
 
     def _parse_new_entry(self, duration: float, *entry_args) -> None:
         match entry_args:
@@ -108,14 +165,14 @@ class ConsoleSession:
                     comment=' '.join(comment).strip()
                 ))
             # Category argument, no account argument
-            case (str(cat_key), str(account), *comment) if (
+            case (str(cat_key), *comment) if (
                     is_float(cat_key) and
                     int(cat_key) in CATEGORIES.keys()
                 ):
                 self.time_entries.append(TimeEntry(
                     duration,
                     category=int(cat_key),
-                    comment=(account + ' ' + ' '.join(comment)).strip()
+                    comment=(' '.join(comment)).strip()
                 ))
             # Account argument, no category argument
             case (str(account), *comment) if (
@@ -141,53 +198,6 @@ class ConsoleSession:
 
         print(self.time_entries[-1])
 
-    def get_user_input(self) -> None:
-        user_input: str = input('> ').lower().split(' ')
-        match user_input:
-            case[str(duration), *entry_args] if is_float(duration):
-                duration = float(duration)
-                if duration > MAX_DURATION:
-                    raise ValueError("You're working too much.")
-                self._parse_new_entry(duration, *entry_args)
-            case['clear', *_]:
-                self.clear()
-            case['clip', *_]:
-                if pyperclip is not None:
-                    self.copy_output()
-                else:
-                    raise ImportError('Unable to copy to clipboard.')
-            case['c' | 'commit', *_]:
-                raise NotImplementedError
-            case['d' | 'date', str(datestr), *_]:
-                raise NotImplementedError
-            case['ls' | 'list', str(list_target)]:
-                match list_target:
-                    case('accounts' | 'wams' | 'a' | 'w'):
-                        display_accounts()
-                    case('cats' | 'c' | 'categories'):
-                        display_categories()
-                    case _:
-                        raise ValueError("Invalid argument; use 'ls accounts' or 'ls categories'")
-            case['p' | 'preview', *_]:
-                self.preview_output()
-            case['s' | 'scale', str(scale_target), *_]:
-                if is_float(scale_target):
-                    self.scale_time_entries(float(scale_target))
-                else:
-                    raise TypeError('Invalid argument, scale_target must be float')
-            case['z' | 'undo', *_]:
-                self.undo_last()
-            case['q' | 'quit', *_]:
-                exit(0)
-            case['h' | 'help']:
-                self.help_msg()
-            case['h' | 'help', str(command)]:
-                self.help_msg(command)
-            case['']:
-                pass # no input => no output
-            case _:
-                print('Invalid input')
-
     def scale_time_entries(self, target_total) -> None:
         """Scale time entries by weighted average to sum to a target total duration."""
         unscaled_total: float = sum([entry.duration for entry in self.time_entries])
@@ -202,19 +212,6 @@ class ConsoleSession:
         for entry in self.time_entries:
             entry.duration = entry.duration + scale_amount * entry.duration / unscaled_total
 
-    def add_entry(self, duration, **kwargs) -> None:
-        """Add a time entry.
-
-        Format:
-        <duration> [ work_mode | account | comment]
-        Example:
-        .3 2 I Incidental deep work
-        2 g Two hours shallow work as group lead
-        1 One hour, default account, default mode
-        1 5 One hour meeting default account"""
-        self.time_entries.append(TimeEntry(duration, **kwargs))
-        print(self.time_entries[-1])
-
     def copy_output(self):
         """Copy output to clipboard."""
         output_str = ''
@@ -226,7 +223,7 @@ class ConsoleSession:
 
     def preview_output(self) -> None:
         """Preview output."""
-        print("DATE\t\tduration\tACCOUNT\t\tCATEGORY\t\tCOMMENT")
+        print("DATE\t\tDURATION\tACCOUNT\t\tCATEGORY\t\tCOMMENT")
         for entry in self.time_entries:
             print(entry)
         print(f"TOTAL\t\t{self.total_duration}")
@@ -241,18 +238,40 @@ class ConsoleSession:
 
     def help_msg(self, command=None):
         """Display this help message. Type help <command> for detail."""
-        if not command:
-            for cmd, function in self.command_list.items():
-                summary_doc = function.__doc__.split('\n')[0]
-                print(f"{cmd}\t-\t{summary_doc}")
-        elif command.upper() in self.command_list.keys():
-            print(self.command_list[command].__doc__)
+        if command:
+            print(self.command_list[command][1].__doc__)
         else:
-            print("Invalid command.")
+            for _, function in self.command_list.items():
+                # ignore non-implemented functions
+                if function[1] is None:
+                    continue
+                summary_doc = function[1].__doc__.split('\n')[0]
+                print(f"{function[0]}\t-\t{summary_doc}")
 
     @property
     def total_duration(self):
         return sum([entry.duration for entry in self.time_entries])
+
+    def _add_entry(self): # pragma: no cover
+        """Add a new entry to the time log.
+
+        Format is <duration> [<category> <account> <comment>]
+        There is no need to type 'add'
+        Duration is required and must be able to be converted to float
+        Type 'ls accounts' and 'ls categories' for available accounts & categories
+        Category must be an integer; account must be a single character
+        Any text after the accounts is considered a comment.
+        All arguments other than duration are optional.
+
+        Some examples:
+        1 2 i this is one hour in category 2 in account 'i'
+        1 this is one hour on default account & category
+        .5 i this is one hour in account 'i'
+        1 2 this is one hour in category 2
+        2.1     (2.1 hrs, default category & account, no comment)
+        """
+        # documentation only function
+        pass
 
 
 def display_accounts(): # pragma: no cover
