@@ -47,14 +47,16 @@ class TimeEntry:
         category: int = DEFAULT_CATEGORY,
         account: str = DEFAULT_ACCOUNT,
         comment: str = '',
+        date: datetime.date = datetime.date.today(),
     ) -> None:
         self.duration: float = duration
         self.category: int = category
         self.account: str = account
         self.comment: str = comment
+        self.date: datetime.date = date
 
         self.timestamp: datetime.datetime = datetime.datetime.today()
-        self.date_str: str = self.timestamp.strftime("%Y/%m/%d")
+        self.date_str: str = self.date.isoformat()
         self.cat_str = CATEGORIES[self.category]
         self.acct_str = ACCOUNTS[self.account.upper()]
 
@@ -80,7 +82,7 @@ class ConsoleSession:
             'clear':    (["clear"],         self.clear),
             'clip':     (["clip"],          self.copy_output),
             'commit':   (['c', 'commit'],   None),      # not implemented
-            'date':     (['d', 'date'],     None),      # not implemented 
+            'date':     (['d', 'date'],     self.set_date),
             'preview':  (["p", "preview"],  self.preview_output),
             'undo':     (["z", "undo"],     self.undo_last),
             'scale':    (["s", "scale"],    self.scale_time_entries),
@@ -88,11 +90,26 @@ class ConsoleSession:
             'help':     (["h", "help"],     self.help_msg),
             'quit':     (["q", "quit"],     exit),
         }
+        self.date = datetime.date.today()
         exit.__doc__ = "Quit"
 
 
     def _is_alias(self, alias, command):
         return alias in self.command_list[command][0]
+
+    def set_date(self, new_date=datetime.date.today()):
+        """Set the date for time entries.
+
+        Enter 'date' with no arguments to set date to today.
+        Enter 'date -<n>' where n is an integer to set date n days back
+            for example 'date -1' will set it to yesterday.
+        Enter 'date yyyy-mm-dd' to set to any custom date.
+        Dates must not be in the future.
+        """
+        if not isinstance(new_date, datetime.date):
+            raise TypeError('Wrong argument passed to set_date')
+        self.date = new_date
+        print(f"Date set to {new_date.isoformat()}")
 
     def get_user_input(self) -> None:
         user_input: str = input('> ').lower().split(' ')
@@ -113,8 +130,11 @@ class ConsoleSession:
                     raise ImportError('Unable to copy to clipboard.')
             case[alias, *_] if self._is_alias(alias, 'commit'):
                 raise NotImplementedError
-            case[alias, *_] if self._is_alias(alias, 'date'):
-                raise NotImplementedError
+            case[alias] if self._is_alias(alias, 'date'):
+                self.set_date()
+            case[alias, str(date_input)] if self._is_alias(alias, 'date'):
+                new_date = parse_date(datestr=date_input)
+                self.set_date(new_date)
             case[alias, *_] if self._is_alias(alias, 'list'):
                 self.list_categories_and_accounts()
             case[alias, *_] if self._is_alias(alias, 'preview'):
@@ -145,7 +165,7 @@ class ConsoleSession:
         match entry_args:
             # No arguments, add entry with all defaults
             case ([] | '' | None):
-                self.time_entries.append(TimeEntry(duration))
+                self.time_entries.append(TimeEntry(duration, date=self.date))
             # All arguments including comment
             case (str(cat_key), str(account), *comment) if (
                     is_float(cat_key) and
@@ -156,7 +176,8 @@ class ConsoleSession:
                     duration,
                     category=int(cat_key),
                     account=account,
-                    comment=' '.join(comment).strip()
+                    comment=' '.join(comment).strip(),
+                    date=self.date,
                 ))
             # Category argument, no account argument
             case (str(cat_key), *comment) if (
@@ -166,7 +187,8 @@ class ConsoleSession:
                 self.time_entries.append(TimeEntry(
                     duration,
                     category=int(cat_key),
-                    comment=(' '.join(comment)).strip()
+                    comment=(' '.join(comment)).strip(),
+                    date=self.date,
                 ))
             # Account argument, no category argument
             case (str(account), *comment) if (
@@ -176,7 +198,8 @@ class ConsoleSession:
                 self.time_entries.append(TimeEntry(
                     duration,
                     account=account,
-                    comment=' '.join(comment).strip()
+                    comment=' '.join(comment).strip(),
+                    date=self.date,
                 ))
             # Comment only
             case (str(cat_key), str(account), *comment) if (
@@ -185,7 +208,8 @@ class ConsoleSession:
                 ):
                 self.time_entries.append(TimeEntry(
                     duration,
-                    comment=(cat_key + ' ' + account + ' ' + ' '.join(comment)).strip()
+                    comment=(cat_key + ' ' + account + ' ' + ' '.join(comment)).strip(),
+                    date=self.date,
                 ))
             case _:
                 raise ValueError('Invalid arguments for time entry')
@@ -291,17 +315,29 @@ def is_float(item: str) -> bool:
         return False
 
 
+def parse_date(datestr: str) -> datetime.datetime:
+    try:
+        date_delta = int(datestr)
+    except ValueError:
+        pass
+    else:
+        if date_delta > 0:
+            raise ValueError("Date cannot be in the future.")
+        return datetime.date.today() + datetime.timedelta(days = date_delta)
+
+    new_date = datetime.date.fromisoformat(datestr)
+    if new_date > datetime.date.today():
+        raise ValueError("Date cannot be in the future.")
+    return new_date
+
+
 def main() -> None:
     print("Welcome to titr.")
     cs = ConsoleSession()
     while True: # pragma: no cover
         try:
             cs.get_user_input()
-        except ValueError as err:
-            print(f"Error: {err}")
-        except TypeError as err:
-            print(f"Error: {err}")
-        except ImportError as err:
+        except Exception as err:
             print(f"Error: {err}")
         except NotImplementedError:
             print('not implemented')
