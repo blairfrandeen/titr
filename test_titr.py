@@ -1,3 +1,4 @@
+import datetime
 import pytest
 import titr
 import pyperclip
@@ -13,11 +14,12 @@ def time_entry():
     yield te
 
 class MockTimeEntry:
-    def __init__(self, duration, account = 'N', category = 5, comment = ''):
+    def __init__(self, duration, account = 'N', category = 5, comment = '', date = datetime.date.today()):
         self.duration = duration
         self.category = category
         self.account = account
         self.comment = comment
+        self.date = date
 
     def __str__(self):
         self_str: str = f"{self.duration}\t{self.category}\t{self.account}\t{self.comment}"
@@ -166,6 +168,16 @@ def test_help_msg(console, monkeypatch, capsys):
         captured = capsys.readouterr()
         assert cmd in captured.out
 
+def test_set_date(console, monkeypatch):
+    console.set_date()
+    assert console.date == datetime.date.today()
+
+    console.set_date(datetime.date.fromisoformat('2022-06-17'))
+    assert console.date == datetime.date(2022,6,17)
+
+    with pytest.raises(TypeError):
+        console.set_date('1941-12-07')
+
 def test_get_user_input(console, monkeypatch, capsys):
     invalid_commands = [
         "help, I'm a bug",
@@ -183,7 +195,7 @@ def test_get_user_input(console, monkeypatch, capsys):
             'clear':    ["clear"],
             'copy_output':     ["clip"],
             #  'commit':   ['c', 'commit'],
-            #  'date':     ['d', 'date'],
+            'set_date':     ['d', 'date', 'd -1', 'date 2013-08-05'],
             'preview_output':  ["p", "preview"],
             'list_categories_and_accounts':  ["ls", "list"],
             'undo_last':     ["z", "undo"],
@@ -206,27 +218,24 @@ def test_get_user_input(console, monkeypatch, capsys):
     with pytest.raises(ValueError):
         console.get_user_input()
 
-    other_valid_commands =[
-        ".25 4 q",
-        "-53",
-        ".5 g g",
-        ".5 93",
-        "42 3 i",
-        ".5 g 3",
-        "2 i",
-        "43",
-    ]
-    valid_commands = {
-        "C": ("C", None),
-        "c": ("C", None),
-        "2": ("A", (2, None, None, None)),
-        "2   ": ("A", (2, None, None, None)),
-        "2       ": ("A", (2, None, None, None)),
-        "2     oh hi lol  ": ("A", (2, None, None, None)),
-        "2 2": ("A", (2, 2, None, None)),
-        "2  g": ("A", (2, None, "G", None)),
-        '2 2  "great job team"': ("A", (2, 2, None, '"great job team"')),
-        ".5 3 g daily stand-up": ("A", (0.5, 3, "G", "daily stand-up")),
-        ".5 3 g": ("A", (0.5, 3, "G", None)),
-        '.25 5 g "group meeting"': ("A", (0.25, 5, "G", '"group meeting"')),
-    }
+
+today = datetime.date.today()
+valid_dates = [
+    ('1984-06-17', datetime.date(1984, 6, 17)),
+    ('-1', today + datetime.timedelta(days=-1)),
+    ('-7', today + datetime.timedelta(days=-7)),
+    ('0', today),
+    ('12', None),
+    ('not a date', None),
+    ('6/17/84', None),
+    ('2121-04-23', None),
+]
+@pytest.mark.parametrize("test_input, expected", valid_dates)
+def test_parse_date(test_input, expected):
+    if expected is not None:
+        assert titr.parse_date(test_input) == expected
+    else:
+        with pytest.raises(ValueError):
+            titr.parse_date(test_input)
+
+
