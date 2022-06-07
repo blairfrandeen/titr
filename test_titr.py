@@ -132,12 +132,12 @@ def test_parse_new_entry(console, monkeypatch):
 
     for entry in valid_time_entries:
         duration, arg_str = entry[0], entry[1]
-        console.time_entries = []
         console._parse_new_entry(duration, *arg_str)
         assert console.time_entries[0].duration == entry[2][0]
         assert console.time_entries[0].category == entry[2][1]
         assert console.time_entries[0].account == entry[2][2]
         assert console.time_entries[0].comment == entry[2][3]
+        console.time_entries = []
 
     invalid_time_entries = [
         (1, [99, 'category out of bounds']),
@@ -184,6 +184,7 @@ def test_get_user_input(console, monkeypatch, capsys):
         ".25*923",
         "Y",
         "45e12",
+        "-2 4 g 'negative work'",
     ]
     for cmd in invalid_commands:
         monkeypatch.setattr('builtins.input', lambda _: cmd)
@@ -196,6 +197,7 @@ def test_get_user_input(console, monkeypatch, capsys):
             'copy_output':     ["clip"],
             #  'commit':   ['c', 'commit'],
             'set_date':     ['d', 'date', 'd -1', 'date 2013-08-05'],
+            'get_outlook_items':  ["o", "outlook"],
             'preview_output':  ["p", "preview"],
             'list_categories_and_accounts':  ["ls", "list"],
             'undo_last':     ["z", "undo"],
