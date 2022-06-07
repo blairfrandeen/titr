@@ -29,6 +29,7 @@ CATEGORIES: Dict[int, str] = {
     6: "Shallow / Misc",
     7: "Career Development",
     8: "Email",
+    9: "Reflection",
 }
 
 ACCOUNTS: Dict[str, str] = {
@@ -83,12 +84,13 @@ class ConsoleSession:
             'clip':     (["clip"],          self.copy_output),
             'commit':   (['c', 'commit'],   None),      # not implemented
             'date':     (['d', 'date'],     self.set_date),
-            'preview':  (["p", "preview"],  self.preview_output),
-            'undo':     (["z", "undo"],     self.undo_last),
-            'scale':    (["s", "scale"],    self.scale_time_entries),
-            'list':     (["ls", "list"],    self.list_categories_and_accounts),
             'help':     (["h", "help"],     self.help_msg),
+            'list':     (["ls", "list"],    self.list_categories_and_accounts),
+            'outlook':  (['o', 'outlook'],  self.get_outlook_items),
+            'preview':  (["p", "preview"],  self.preview_output),
             'quit':     (["q", "quit"],     exit),
+            'scale':    (["s", "scale"],    self.scale_time_entries),
+            'undo':     (["z", "undo"],     self.undo_last),
         }
         self.date = datetime.date.today()
         exit.__doc__ = "Quit"
@@ -96,6 +98,33 @@ class ConsoleSession:
 
     def _is_alias(self, alias, command):
         return alias in self.command_list[command][0]
+
+    def get_outlook_items(self):
+        """Read calendar items from Outlook."""
+        raise NotImplementedError
+        # Open outlook, extract a list of calendar items
+        # for self.date
+
+        # Modify self.command_list as follows:
+        # - Remove outlook command
+        # - Remove date command
+        # - Replace 'quit' command; TODO: Figure out how
+        #   Likely set a return value for get_user_input
+        # Save modified items from command_list, replace them when done
+
+        # loop through outlook items. For each item:
+        # - Print what will be entered
+        # - Ask for user input:
+        #   Run get_user_input with outlook calendar item
+        #   - Blank input accepts entry as is
+        #   - Entry of '0' skips
+        #   - Otherwise should function the same, keeping
+        #   - calendar data but replacing it with user entries
+        #   - Note that changing category will require
+        #     changing or confirming time
+        #   Modify parse_new_entry to accept calendar item as argument
+        #   If new entry generated, pass calendar item to TimeEntry
+        # Time entry should know what to do with a calendar item
 
     def set_date(self, new_date=datetime.date.today()):
         """Set the date for time entries.
@@ -111,13 +140,17 @@ class ConsoleSession:
         self.date = new_date
         print(f"Date set to {new_date.isoformat()}")
 
-    def get_user_input(self) -> None:
+    def get_user_input(self, outlook_item = None) -> None:
         user_input: str = input('> ').lower().split(' ')
         match user_input:
             case[str(duration), *entry_args] if is_float(duration):
                 duration = float(duration)
                 if duration > MAX_DURATION:
                     raise ValueError("You're working too much.")
+                if duration < 0:
+                    raise ValueError("You can't unwork.")
+                if duration == 0: # pragma: no cover
+                    return None  # zero duration does nothing
                 self._parse_new_entry(duration, *entry_args)
             case[alias, *_] if self._is_alias(alias, 'add'):
                 self.help_msg(command='add')
@@ -137,6 +170,8 @@ class ConsoleSession:
                 self.set_date(new_date)
             case[alias, *_] if self._is_alias(alias, 'list'):
                 self.list_categories_and_accounts()
+            case[alias] if self._is_alias(alias, 'outlook'):
+                self.get_outlook_items()
             case[alias, *_] if self._is_alias(alias, 'preview'):
                 self.preview_output()
             case[alias, str(scale_target)] if self._is_alias(alias, 'scale'):
@@ -159,7 +194,7 @@ class ConsoleSession:
             case['']: # pragma: no cover
                 pass # no input => no output
             case _:
-                raise ValueError(f'Invalid input: {user_input}')
+                raise ValueError(f'Invalid input: "{" ".join(user_input)}"')
 
     def _parse_new_entry(self, duration: float, *entry_args) -> None:
         match entry_args:
@@ -337,10 +372,10 @@ def main() -> None:
     while True: # pragma: no cover
         try:
             cs.get_user_input()
-        except Exception as err:
-            print(f"Error: {err}")
         except NotImplementedError:
             print('not implemented')
+        except Exception as err:
+            print(f"Error: {err}")
 
 
 if __name__ == "__main__":
