@@ -27,9 +27,10 @@ CATEGORIES: Dict[int, str] = {
     4: "Discussions",
     5: "Meetings",
     6: "Shallow / Misc",
-    7: "Career Development",
+    7: "Integration Activities",
     8: "Email",
     9: "Reflection",
+    10: "Career Development",
 }
 
 ACCOUNTS: Dict[str, str] = {
