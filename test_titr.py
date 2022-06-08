@@ -123,6 +123,7 @@ def test_parse_new_entry(console, monkeypatch):
         #  (1, ['2'], (1, 2, default_acct, '')),
         (1, '2 i'.split(' '), (1, 2, 'i', '')),
         (7, '2 i test string'.split(' '), (7, 2, 'i', 'test string')),
+        (7, '2 i TEST STRING'.split(' '), (7, 2, 'i', 'TEST STRING')),
         (.8731, 'i test string'.split(' '), (.8731, default_cat, 'i', 'test string')),
         (0.25, '2 a damn good feeling is a damn good time, wait, "who wrote my rhyme"?'.split(' '),
             (0.25, 2, default_acct, 'a damn good feeling is a damn good time, wait, "who wrote my rhyme"?')
@@ -196,8 +197,8 @@ def test_get_user_input(console, monkeypatch, capsys):
             'clear':    ["clear"],
             'copy_output':     ["clip"],
             #  'commit':   ['c', 'commit'],
-            'set_date':     ['d', 'date', 'd -1', 'date 2013-08-05'],
-            'get_outlook_items':  ["o", "outlook"],
+            'set_date':     ['d', 'date', 'D', 'd -1', 'date 2013-08-05'],
+            'get_outlook_items':  ["O", "outlook"],
             'preview_output':  ["p", "preview"],
             'list_categories_and_accounts':  ["ls", "list"],
             'undo_last':     ["z", "undo"],
