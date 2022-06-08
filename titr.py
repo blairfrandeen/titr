@@ -98,7 +98,7 @@ class ConsoleSession:
 
 
     def _is_alias(self, alias, command):
-        return alias in self.command_list[command][0]
+        return alias.lower() in self.command_list[command][0]
 
     def get_outlook_items(self):
         """Read calendar items from Outlook."""
@@ -142,7 +142,7 @@ class ConsoleSession:
         print(f"Date set to {new_date.isoformat()}")
 
     def get_user_input(self, outlook_item = None) -> None:
-        user_input: str = input('> ').lower().split(' ')
+        user_input: str = input('> ').split(' ')
         match user_input:
             case[str(duration), *entry_args] if is_float(duration):
                 duration = float(duration)
