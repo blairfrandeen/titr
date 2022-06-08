@@ -25,20 +25,29 @@ class MockTimeEntry:
         self_str: str = f"{self.duration}\t{self.category}\t{self.account}\t{self.comment}"
         return self_str
 
+float_tests = [
+    ('yankee', False),
+    ('dOODlE', False),
+    ('KLJF#*(@#!!', False),
+    ('.34', True),
+    ('.23191', True),
+    ('0', True),
+    ('-0', True),
+    ('99', True),
+    ('4e5', True),
+    ('inf', True),
+    (5, True),
+    (4.1, True),
+    (-4.23e-5, True),
+    (False, True),
+    ('NaN', True),
+]
 
-def test_is_float():
-    not_floats = ['yankee', 'doodle', 'foxtrot', '*@(#!)']
-    for item in not_floats:
-        assert titr.is_float(item) is False
+@pytest.mark.parametrize("item, expected", float_tests)
+def test_is_float(item, expected):
+    assert titr.is_float(item) is expected
 
-    floats = ['.34', '0.2919', '-23.4', '0', '-0', '99', '4e5', 'inf']
-    for item in floats:
-        assert titr.is_float(item)
-
-    more_floats = ['5', 5, 5.3, -4.23e-5, False, 'NaN']
-    for item in more_floats:
-        assert titr.is_float(item)
-
+def test_float_bad_inputs():
     definitely_not_floats = [[1,2,3], {1: 'hi'}, None]
     for item in definitely_not_floats:
         with pytest.raises(TypeError):
@@ -179,20 +188,22 @@ def test_set_date(console, monkeypatch):
     with pytest.raises(TypeError):
         console.set_date('1941-12-07')
 
+invalid_commands = [
+    "help, I'm a bug",
+    ".25*923",
+    "Y",
+    "45e12",
+    "-2 4 g 'negative work'",
+]
+
+@pytest.mark.parametrize("cmd", invalid_commands)
+def test_get_user_input_invalid(cmd, monkeypatch, console):
+    monkeypatch.setattr('builtins.input', lambda _: cmd)
+    with pytest.raises(ValueError):
+        console.get_user_input()
+
+
 def test_get_user_input(console, monkeypatch, capsys):
-    invalid_commands = [
-        "help, I'm a bug",
-        ".25*923",
-        "Y",
-        "45e12",
-        "-2 4 g 'negative work'",
-    ]
-    for cmd in invalid_commands:
-        monkeypatch.setattr('builtins.input', lambda _: cmd)
-        with pytest.raises(ValueError):
-            console.get_user_input()
-
-
     valid_commands = {
             'clear':    ["clear"],
             'copy_output':     ["clip"],
