@@ -44,8 +44,8 @@ def calendar_folder(MAPI_account):
         time.sleep(3)
         MAPI_account.Folders.Remove(test_folder_index)
 
+@pytest.fixture
 def make_appointment(calendar_folder):
-#    @pytest.mark.usefixtures("calendar_folder")
     def _make_appointment(
         start: datetime.time,
         duration: int, # minutes
@@ -67,15 +67,43 @@ def make_appointment(calendar_folder):
         new_appointment.Duration = duration
         new_appointment.Categories = category
         # Move to calendar
-        new_appointment = new_appointment.Move(calendar_folder)
-        return new_appointment
+        new_appointment.Move(calendar_folder)
+        return calendar_folder.Items(calendar_folder.Items.Count)
 
     return _make_appointment
 
-def test_get_outlook_items(console, calendar_folder):
-    a0 = make_appointment(calendar_folder)
-    a0(datetime.time(8), 90, "test", "Deep Work")
-    a0(datetime.time(10), 30, "test", "Meetings")
-    # a1 = make_appointment(datetime.time(8), 90, "test", "Deep Testing")
+def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypatch):
+    # make_appt = make_appointment
+    test_appointments = []
+    test_appt_parameters = [
+        (datetime.time(8), 90, "Test Event #1", "Deep Work"),
+        (datetime.time(10), 30, "Test Event #2", "Meetings"),
+        (datetime.time(11), 30, "Tentative Event", "Meetings"),
+        (datetime.time(11), 90, "Free Event", "Meetings"),
+        (datetime.time(12), 60, "Filtered Event", "Meetings"),
+        (datetime.time(0), 1440, "All-Day Event", "Meetings"),
+        (datetime.time(13), 120, "Out of Office", "Meetings"),
+        (datetime.time(15), 120, "Working Elsewhere", "Meetings"),
+    ]
+    for appt in test_appt_parameters:
+        test_appointments.append(make_appointment(*appt))
+
+    test_appointments[2].BusyStatus = 1      # tentative
+    test_appointments[3].BusyStatus = 0      # free
+    test_appointments[5].AllDayEvent = True  # all day
+    test_appointments[6].BusyStatus = 3      # out of office
+    test_appointments[7].BusyStatus = 4      # working elsewhere
+    for appt in test_appointments:
+        appt.Save()
+
+    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
+    monkeypatch.setattr("titr.CALENDAR_NAME", TEST_CALENDAR_NAME)
+    console.date = TEST_DAY
+
     outlook_items = console.get_outlook_items()
-    assert len(outlook_items) == 1
+
+
+    assert len(outlook_items) == len(test_appt_parameters)
+    assert outlook_items[0].Subject == calendar_folder.Items(1).Subject
+
+
