@@ -8,10 +8,19 @@ https://github.com/blairfrandeen/titr
 """
 
 import datetime
+import time
+
 try:
     import pyperclip
 except ModuleNotFoundError: # pragma: no cover
     pyperclip = None
+
+try:
+    import pywintypes
+    import win32com.client
+except ModuleNotFoundError:
+    pywintypes = None
+    win32com.client = None
 
 from typing import Optional, Tuple, Dict, List, Callable
 
@@ -20,6 +29,9 @@ from typing import Optional, Tuple, Dict, List, Callable
 MAX_DURATION: float = 9  # maximum duration that can be entered for any task
 DEFAULT_CATEGORY: int = 6
 DEFAULT_ACCOUNT: str = 'O'
+
+OUTLOOK_ACCOUNT = 'blairfrandeen@outlook.com'
+CALENDAR_NAME = 'Calendar'
 
 CATEGORIES: Dict[int, str] = {
     2: "Deep Work",
@@ -102,7 +114,25 @@ class ConsoleSession:
 
     def get_outlook_items(self):
         """Read calendar items from Outlook."""
-        raise NotImplementedError
+        # Time format string requried by MAPI to filter by date
+        MAPI_TIME_FORMAT = "%m-%d-%Y %I:%M %p"
+        # connect to outlook
+        outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+        calendar = outlook.Folders.Item(OUTLOOK_ACCOUNT).Folders(CALENDAR_NAME)
+        print(f"{calendar.Name =}")
+        search_start = self.date
+        search_end = search_start + datetime.timedelta(days=1)
+        search_str = ''.join([
+                "[Start] >= '",
+                search_start.strftime(MAPI_TIME_FORMAT),
+                "' AND [End] <= '",
+                search_end.strftime(MAPI_TIME_FORMAT),
+                "'",
+                ])
+        cal_filtered = calendar.Items.Restrict(search_str)
+
+        return cal_filtered
+        #raise NotImplementedError
         # Open outlook, extract a list of calendar items
         # for self.date
 
