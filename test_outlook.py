@@ -53,6 +53,14 @@ def remove_calendar(calendar_name, MAPI_account):
             #time.sleep(1)
             #MAPI_account.Folders.Remove(test_folder_index)
 
+def datetime_to_pywintime(start_time):
+        new_start = (
+                datetime.datetime.combine(TEST_DAY, start_time)
+                + datetime.timedelta(hours=UTC_OFFSET_HR)
+            )
+        new_start = pywintypes.Time(new_start)
+        return new_start
+
 @pytest.fixture
 def make_appointment(calendar_folder):
     def _make_appointment(
@@ -60,6 +68,7 @@ def make_appointment(calendar_folder):
         duration: int, # minutes
         subject: str,
         category: str,
+        busy_status: int,
     ) -> None:
         # Create a new calendar item
         # Argument makes it type AppointmentItem
@@ -67,45 +76,40 @@ def make_appointment(calendar_folder):
         new_appointment = calendar_folder.Items.Add(1)
         new_appointment.Subject = subject
         new_appointment.ReminderSet = False      # turn off reminder
-        new_start = (
-                datetime.datetime.combine(TEST_DAY, start)
-                + datetime.timedelta(hours=UTC_OFFSET_HR)
-            )
-        new_start = pywintypes.Time(new_start)
-        new_appointment.Start = new_start
+        new_appointment.Start = datetime_to_pywintime(start)
         new_appointment.Duration = duration
         new_appointment.Categories = category
+        new_appointment.BusyStatus = busy_status
+        if start == datetime.time(0) and duration == 1440:
+            new_appointment.AllDayEvent = True
+        else:
+            new_appointment.AllDayEvent = False
         # Move to calendar
         new_appointment.Move(calendar_folder)
         return calendar_folder.Items(calendar_folder.Items.Count)
 
     return _make_appointment
 
-@pytest.mark.skip(reason='Working; connect to outlook time consuming')
-def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypatch):
+@pytest.fixture
+def test_appt_parameters():
     # Make a bunch of mock appointments
-    test_appt_parameters = [
-        (datetime.time(8), 90, "Test Event #1", "Deep Work"),
-        (datetime.time(10), 30, "Test Event #2", "Meetings"),
-        (datetime.time(11), 30, "Tentative Event", "Meetings"),
-        (datetime.time(11), 90, "Free Event", "Meetings"),
-        (datetime.time(12), 60, "Filtered Event", "Meetings"),
-        (datetime.time(0), 1440, "All-Day Event", "Meetings"),
-        (datetime.time(13), 120, "Out of Office", "Meetings"),
-        (datetime.time(15), 120, "Working Elsewhere", "Meetings"),
+    params = [
+        (datetime.time(8), 90, "Test Event #1", "Deep Work", 2),
+        (datetime.time(10), 30, "Test Event #2", "Meetings", 2),
+        (datetime.time(11), 30, "Tentative Event", "Meetings", 1),
+        (datetime.time(11), 90, "Free Event", "Meetings", 0),
+        (datetime.time(12), 60, "Filtered Event", "Meetings", 2),
+        (datetime.time(0), 1440, "All-Day Event", "Meetings", 0),
+        (datetime.time(13), 120, "Out of Office", "Meetings", 3),
+        (datetime.time(15), 120, "Working Elsewhere", "Meetings", 4),
     ]
+    return params
+
+#@pytest.mark.skip(reason='Working; connect to outlook time consuming')
+def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypatch,test_appt_parameters):
     test_appointments = []
     for appt in test_appt_parameters:
         test_appointments.append(make_appointment(*appt))
-
-    # Modifiy some additional parameters
-    test_appointments[2].BusyStatus = 1      # tentative
-    test_appointments[3].BusyStatus = 0      # free
-    test_appointments[5].AllDayEvent = True  # all day
-    test_appointments[6].BusyStatus = 3      # out of office
-    test_appointments[7].BusyStatus = 4      # working elsewhere
-    for appt in test_appointments:
-        appt.Save()
 
     # Set titr to look in new test folder
     monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
@@ -113,6 +117,8 @@ def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypat
     console.date = TEST_DAY
 
     outlook_items = console.get_outlook_items()
+    return outlook_items
+
 
     assert len(outlook_items) == len(test_appt_parameters)
     for index, appt in enumerate(outlook_items):
@@ -121,12 +127,49 @@ def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypat
         assert outlook_items[index].Categories == test_appt_parameters[index][3]
 
 
-def test_import_from_outlook(console, monkeypatch):
+class MockOutlookAppt:
+    def __init__(self, start, duration, subject, categories, busy_status):
+        self.Subject = subject
+        self.Start = datetime_to_pywintime(start)
+        self.Duration = duration
+        self.BusyStatus = busy_status
+        self.Categories = categories
+        if start == datetime.time(0) and duration == 1440:
+            self.AllDayEvent = True
+        else:
+            self.AllDayEvent = False
+
+@pytest.fixture
+def mock_appointments(test_appt_parameters):
+    appointments = []
+    for appt in test_appt_parameters:
+        appointments.append(MockOutlookAppt(*appt))
+    return appointments
+
+def test_import_from_outlook(console, monkeypatch, mock_appointments):
     def _mock_get_outlook_items():
         return []
+    def _mock_set_mode():
+        print("Mode changed.")
     monkeypatch.setattr(console, 'get_outlook_items', _mock_get_outlook_items)
+    monkeypatch.setattr(console, '_set_outlook_mode', _mock_set_mode)
+    monkeypatch.setattr(console, '_set_normal_mode', _mock_set_mode)
+    monkeypatch.setattr(titr, 'SKIP_EVENT_NAMES', ['Filtered Event'])
     with pytest.raises(KeyError):
         console.import_from_outlook()
+
+    monkeypatch.setattr(console, 'get_outlook_items', lambda: mock_appointments)
+    console.import_from_outlook()
+    assert len(console.time_entries) == 4
+    for entry in console.time_entries:
+        for subject in [
+                'Filtered Event',
+                'Free Event',
+                'Filtered Event',
+                'All-Day Event',
+                'Out of Office',
+                ]:
+            assert subject not in entry.comment
 
 
 def test_set_outlook_mode(console):

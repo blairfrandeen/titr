@@ -133,6 +133,7 @@ class ConsoleSession:
         if len(outlook_items) == 0:
             raise KeyError(f"No outlook items found for {self.date}")
 
+        self._set_outlook_mode()
         for item in outlook_items:
             if item.AllDayEvent is True and SKIP_ALLDAY_EVENTS is True:
                 continue
@@ -142,19 +143,22 @@ class ConsoleSession:
                 continue
             comment = item.Subject
             duration = item.Duration / 60   # convert minutes to hours
+
+            # TODO: Accept multiple categories
             appt_category = item.Categories.split(',')[0].strip()
             appt_cat = DEFAULT_CATEGORY
             for key, cat in CATEGORIES.items():
                 if cat == appt_category:
                     appt_cat = key
                     break
+
             self.time_entries.append(TimeEntry(
                 duration = duration,
                 comment = comment,
                 category = appt_cat,
             ))
-            # self._parse_new_entry(duration, comment)
-        # self._set_outlook_mode()
+
+        self._set_normal_mode()
 
     def get_outlook_items(self):
         """Read calendar items from Outlook."""
@@ -175,15 +179,6 @@ class ConsoleSession:
         cal_filtered = calendar.Items.Restrict(search_str)
 
         return cal_filtered
-        # Open outlook, extract a list of calendar items
-        # for self.date
-
-        # - Remove outlook command
-        # Modify self.command_list as follows:
-        # - Remove date command
-        # - Replace 'quit' command; TODO: Figure out how
-        #   Likely set a return value for get_user_input
-        # Save modified items from command_list, replace them when done
 
         # loop through outlook items. For each item:
         # - Print what will be entered
