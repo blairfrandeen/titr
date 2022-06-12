@@ -26,7 +26,10 @@ def calendar_folder(MAPI_account):
     # Create a new folder for test items
     # second argument is olFolderCalendar type
     # Reference https://docs.microsoft.com/en-us/office/vba/api/outlook.oldefaultfolders
-    test_folder = MAPI_account.Folders.Add(TEST_CALENDAR_NAME, 9)
+    try:
+        test_folder = MAPI_account.Folders.Add(TEST_CALENDAR_NAME, 9)
+    except pywintypes.com_error:
+        raise Exception("Test folder already exists, please delete and try again.")
     yield test_folder
 
     # Clean up
@@ -73,8 +76,7 @@ def make_appointment(calendar_folder):
     return _make_appointment
 
 def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypatch):
-    # make_appt = make_appointment
-    test_appointments = []
+    # Make a bunch of mock appointments
     test_appt_parameters = [
         (datetime.time(8), 90, "Test Event #1", "Deep Work"),
         (datetime.time(10), 30, "Test Event #2", "Meetings"),
@@ -85,9 +87,11 @@ def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypat
         (datetime.time(13), 120, "Out of Office", "Meetings"),
         (datetime.time(15), 120, "Working Elsewhere", "Meetings"),
     ]
+    test_appointments = []
     for appt in test_appt_parameters:
         test_appointments.append(make_appointment(*appt))
 
+    # Modifiy some additional parameters
     test_appointments[2].BusyStatus = 1      # tentative
     test_appointments[3].BusyStatus = 0      # free
     test_appointments[5].AllDayEvent = True  # all day
@@ -96,14 +100,17 @@ def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypat
     for appt in test_appointments:
         appt.Save()
 
+    # Set titr to look in new test folder
     monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
     monkeypatch.setattr("titr.CALENDAR_NAME", TEST_CALENDAR_NAME)
     console.date = TEST_DAY
 
     outlook_items = console.get_outlook_items()
 
-
     assert len(outlook_items) == len(test_appt_parameters)
-    assert outlook_items[0].Subject == calendar_folder.Items(1).Subject
+    for index, appt in enumerate(outlook_items):
+        assert outlook_items[index].Duration == test_appt_parameters[index][1]
+        assert outlook_items[index].Subject == test_appt_parameters[index][2]
+        assert outlook_items[index].Categories == test_appt_parameters[index][3]
 
 
