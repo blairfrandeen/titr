@@ -25,6 +25,17 @@ class MockTimeEntry:
         self_str: str = f"{self.duration}\t{self.category}\t{self.account}\t{self.comment}"
         return self_str
 
+alias_tests = [
+        (('d','date'), True),
+        (('o', 'outlook'), True),
+        (('quit', 'quit'), True),
+        (('x', 'not a command'), False),
+        (('?', 'undo'), False),
+    ]
+@pytest.mark.parametrize('item, expected', alias_tests)
+def test_is_alias(console, item, expected):
+    assert console._is_alias(*item) is expected
+
 float_tests = [
     ('yankee', False),
     ('dOODlE', False),
@@ -209,7 +220,7 @@ def test_get_user_input(console, monkeypatch, capsys):
             'copy_output':     ["clip"],
             #  'commit':   ['c', 'commit'],
             'set_date':     ['d', 'date', 'D', 'd -1', 'date 2013-08-05'],
-            'get_outlook_items':  ["O", "outlook"],
+            'import_from_outlook':  ["O", "outlook"],
             'preview_output':  ["p", "preview"],
             'list_categories_and_accounts':  ["ls", "list"],
             'undo_last':     ["z", "undo"],

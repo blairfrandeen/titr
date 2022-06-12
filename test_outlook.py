@@ -26,6 +26,7 @@ def calendar_folder(MAPI_account):
     # Create a new folder for test items
     # second argument is olFolderCalendar type
     # Reference https://docs.microsoft.com/en-us/office/vba/api/outlook.oldefaultfolders
+    remove_calendar(TEST_CALENDAR_NAME, MAPI_account)
     try:
         test_folder = MAPI_account.Folders.Add(TEST_CALENDAR_NAME, 9)
     except pywintypes.com_error:
@@ -33,19 +34,24 @@ def calendar_folder(MAPI_account):
     yield test_folder
 
     # Clean up
+    # remove_calendar(TEST_CALENDAR_NAME, MAPI_account)
+
+def remove_calendar(calendar_name, MAPI_account):
     # Find the index of the folder to remove
     test_folder_index = 0
     for index in range(MAPI_account.Folders.Count):
-        if MAPI_account.Folders.Item(index + 1).Name == TEST_CALENDAR_NAME:
+        if MAPI_account.Folders.Item(index + 1).Name == calendar_name:
             test_folder_index = index + 1
             break
 
-    ready = input('enter to remove cal and continue')
-    try:
-        MAPI_account.Folders.Remove(test_folder_index)
-    except pywintypes.com_error:
-        time.sleep(3)
-        MAPI_account.Folders.Remove(test_folder_index)
+#    ready = input('enter to remove cal and continue')
+    if test_folder_index > 0:
+        try:
+            MAPI_account.Folders.Remove(test_folder_index)
+        except pywintypes.com_error:
+            pass
+            #time.sleep(1)
+            #MAPI_account.Folders.Remove(test_folder_index)
 
 @pytest.fixture
 def make_appointment(calendar_folder):
@@ -75,6 +81,7 @@ def make_appointment(calendar_folder):
 
     return _make_appointment
 
+@pytest.mark.skip(reason='Working; connect to outlook time consuming')
 def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypatch):
     # Make a bunch of mock appointments
     test_appt_parameters = [
@@ -114,3 +121,25 @@ def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypat
         assert outlook_items[index].Categories == test_appt_parameters[index][3]
 
 
+def test_import_from_outlook(console, monkeypatch):
+    def _mock_get_outlook_items():
+        return []
+    monkeypatch.setattr(console, 'get_outlook_items', _mock_get_outlook_items)
+    with pytest.raises(KeyError):
+        console.import_from_outlook()
+
+
+def test_set_outlook_mode(console):
+    console._set_outlook_mode()
+    cmd_list = console.command_list
+    assert 'outlook' not in cmd_list.keys()
+    assert 'date' not in cmd_list.keys()
+    assert cmd_list['quit'][1] == console._set_normal_mode
+
+# def test_set_normal_mode(console):
+    console._set_normal_mode()
+    cmd_list = console.command_list
+    assert 'outlook' in cmd_list.keys()
+    assert 'date' in cmd_list.keys()
+    assert cmd_list['quit'][1] == exit
+    assert cmd_list['null_cmd'][1] is None

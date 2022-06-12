@@ -32,6 +32,9 @@ DEFAULT_ACCOUNT: str = 'O'
 
 OUTLOOK_ACCOUNT = 'blairfrandeen@outlook.com'
 CALENDAR_NAME = 'Calendar'
+SKIP_ALLDAY_EVENTS = True
+SKIP_EVENT_NAMES = ['Lunch']    # skip outlook events with these titles
+SKIP_EVENT_STATUS = [0, 3]      # skip outlook events with status free or out of office
 
 CATEGORIES: Dict[int, str] = {
     2: "Deep Work",
@@ -94,23 +97,64 @@ class ConsoleSession:
         self.command_list: Dict[str, Tuple[List[str], Callable]] = {
             'add':      (['add'],           self._add_entry),
             'clear':    (["clear"],         self.clear),
-            'clip':     (["clip"],          self.copy_output),
             'commit':   (['c', 'commit'],   None),      # not implemented
             'date':     (['d', 'date'],     self.set_date),
             'help':     (["h", "help"],     self.help_msg),
             'list':     (["ls", "list"],    self.list_categories_and_accounts),
-            'outlook':  (['o', 'outlook'],  self.get_outlook_items),
+            'outlook':  (['o', 'outlook'],  self.import_from_outlook),
+            'null_cmd': ([''],              None),
             'preview':  (["p", "preview"],  self.preview_output),
             'quit':     (["q", "quit"],     exit),
             'scale':    (["s", "scale"],    self.scale_time_entries),
             'undo':     (["z", "undo"],     self.undo_last),
         }
+        if pywintypes is not None and win32com.client is not None:
+            self.command_list['outlook'] = (
+                ['o', 'outlook'],  self.import_from_outlook
+            )
+        if pyperclip is not None:
+            self.command_list['clip'] = (
+                ["clip"],          self.copy_output
+            )
         self.date = datetime.date.today()
         exit.__doc__ = "Quit"
 
 
     def _is_alias(self, alias, command):
+        """Test if a user command is an alias for a known command."""
+        if command not in self.command_list.keys():
+            return False
         return alias.lower() in self.command_list[command][0]
+
+    def import_from_outlook(self):
+        """Import appointments from outlook."""
+        print('Getting outlook items...')
+        outlook_items = self.get_outlook_items()
+        if len(outlook_items) == 0:
+            raise KeyError(f"No outlook items found for {self.date}")
+
+        for item in outlook_items:
+            if item.AllDayEvent is True and SKIP_ALLDAY_EVENTS is True:
+                continue
+            if item.Subject in SKIP_EVENT_NAMES:
+                continue
+            if item.BusyStatus in SKIP_EVENT_STATUS:
+                continue
+            comment = item.Subject
+            duration = item.Duration / 60   # convert minutes to hours
+            appt_category = item.Categories.split(',')[0].strip()
+            appt_cat = DEFAULT_CATEGORY
+            for key, cat in CATEGORIES.items():
+                if cat == appt_category:
+                    appt_cat = key
+                    break
+            self.time_entries.append(TimeEntry(
+                duration = duration,
+                comment = comment,
+                category = appt_cat,
+            ))
+            # self._parse_new_entry(duration, comment)
+        # self._set_outlook_mode()
 
     def get_outlook_items(self):
         """Read calendar items from Outlook."""
@@ -119,7 +163,6 @@ class ConsoleSession:
         # connect to outlook
         outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
         calendar = outlook.Folders.Item(OUTLOOK_ACCOUNT).Folders(CALENDAR_NAME)
-        print(f"{calendar.Name =}")
         search_start = self.date
         search_end = search_start + datetime.timedelta(days=1)
         search_str = ''.join([
@@ -132,12 +175,11 @@ class ConsoleSession:
         cal_filtered = calendar.Items.Restrict(search_str)
 
         return cal_filtered
-        #raise NotImplementedError
         # Open outlook, extract a list of calendar items
         # for self.date
 
-        # Modify self.command_list as follows:
         # - Remove outlook command
+        # Modify self.command_list as follows:
         # - Remove date command
         # - Replace 'quit' command; TODO: Figure out how
         #   Likely set a return value for get_user_input
@@ -156,6 +198,22 @@ class ConsoleSession:
         #   Modify parse_new_entry to accept calendar item as argument
         #   If new entry generated, pass calendar item to TimeEntry
         # Time entry should know what to do with a calendar item
+
+    def _set_outlook_mode(self):
+        """Set console mode to add items from outlook."""
+        replace_commands = ['outlook', 'date', 'quit', 'null_cmd']
+        self.default_commands = dict()
+        for cmd in replace_commands:
+            self.default_commands[cmd] = self.command_list.pop(cmd)
+
+        self.command_list['quit'] = (self.default_commands['quit'][0], self._set_normal_mode)
+        self.command_list['null_cmd'] = ([''], None)
+
+    def _set_normal_mode(self):
+        """Return console to normal mode."""
+        for cmd in self.default_commands.keys():
+
+            self.command_list[cmd] = self.default_commands[cmd]
 
     def set_date(self, new_date=datetime.date.today()):
         """Set the date for time entries.
@@ -184,6 +242,7 @@ class ConsoleSession:
                     return None  # zero duration does nothing
                 self._parse_new_entry(duration, *entry_args)
             case[alias, *_] if self._is_alias(alias, 'add'):
+                # self.command_list['help'][1](command='add')
                 self.help_msg(command='add')
             case[alias, *_] if self._is_alias(alias, 'clear'):
                 self.clear()
@@ -202,7 +261,7 @@ class ConsoleSession:
             case[alias, *_] if self._is_alias(alias, 'list'):
                 self.list_categories_and_accounts()
             case[alias] if self._is_alias(alias, 'outlook'):
-                self.get_outlook_items()
+                self.import_from_outlook()
             case[alias, *_] if self._is_alias(alias, 'preview'):
                 self.preview_output()
             case[alias, str(scale_target)] if self._is_alias(alias, 'scale'):
@@ -213,7 +272,7 @@ class ConsoleSession:
             case[alias, *_] if self._is_alias(alias, 'undo'):
                 self.undo_last()
             case[alias, *_] if self._is_alias(alias, 'quit'):
-                exit(0)
+                self.command_list['quit'][1]()
             case[alias, str(command)] if self._is_alias(alias, 'help'):
                 for name, cmd in self.command_list.items():
                     if self._is_alias(command, name):
@@ -222,8 +281,8 @@ class ConsoleSession:
                 raise ValueError("Command not found. Type 'help' for list.")
             case[alias] if self._is_alias(alias, 'help'):
                 self.help_msg()
-            case['']: # pragma: no cover
-                pass # no input => no output
+            case[alias] if self._is_alias(alias, 'null_cmd'): # pragma: no cover
+                pass
             case _:
                 raise ValueError(f'Invalid input: "{" ".join(user_input)}"')
 
@@ -405,8 +464,13 @@ def main() -> None:
             cs.get_user_input()
         except NotImplementedError:
             print('not implemented')
-        except Exception as err:
+        except ValueError as err:
             print(f"Error: {err}")
+        except TypeError as err:
+            print(f"Error: {err}")
+        except KeyError as err:
+            print(f"Error: {err}")
+
 
 
 if __name__ == "__main__":
