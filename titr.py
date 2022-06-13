@@ -30,7 +30,7 @@ MAX_DURATION: float = 9  # maximum duration that can be entered for any task
 DEFAULT_CATEGORY: int = 6
 DEFAULT_ACCOUNT: str = 'O'
 
-OUTLOOK_ACCOUNT = 'blairfrandeen@outlook.com'
+OUTLOOK_ACCOUNT = 'Blair.S.Frandeen@jpl.nasa.gov'
 CALENDAR_NAME = 'Calendar'
 SKIP_ALLDAY_EVENTS = True
 SKIP_EVENT_NAMES = ['Lunch']    # skip outlook events with these titles
@@ -87,7 +87,8 @@ class TimeEntry:
         return tsv_str
 
     def __str__(self): # pragma: no cover
-        self_str: str = f"{self.date_str}\t{self.duration}\t\t{self.acct_str}\t\t{self.cat_str}\t\t{self.comment}"
+        # TODO: Improve formatting
+        self_str: str = f"{self.date_str}\t{round(self.duration,2)}\t\t{self.acct_str}\t\t{self.cat_str}\t\t{self.comment}"
         return self_str
 
 
@@ -133,6 +134,7 @@ class ConsoleSession:
         if len(outlook_items) == 0:
             raise KeyError(f"No outlook items found for {self.date}")
 
+        print(f"Found total of {len(outlook_items)}")
         self._set_outlook_mode()
         for item in outlook_items:
             if item.AllDayEvent is True and SKIP_ALLDAY_EVENTS is True:
@@ -152,7 +154,8 @@ class ConsoleSession:
                     category = key
                     break
 
-            print(f"{duration} hr:\t{category}\t{comment}")
+            # TODO: Improve formatting
+            print(f"{round(duration,2)} hr:\t{category}\t{comment}")
             ui = self.get_user_input(outlook_item = (duration, category, comment))
             if ui == 0:
                 break
@@ -166,6 +169,9 @@ class ConsoleSession:
         # connect to outlook
         outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
         calendar = outlook.Folders.Item(OUTLOOK_ACCOUNT).Folders(CALENDAR_NAME)
+        cal_items = calendar.Items
+        cal_items.Sort("Start", False)
+        cal_items.IncludeRecurrences = True
         search_start = self.date
         search_end = search_start + datetime.timedelta(days=1)
         search_str = ''.join([
@@ -175,7 +181,8 @@ class ConsoleSession:
                 search_end.strftime(MAPI_TIME_FORMAT),
                 "'",
                 ])
-        cal_filtered = calendar.Items.Restrict(search_str)
+
+        cal_filtered = cal_items.Restrict(search_str)
 
         return cal_filtered
 
@@ -398,7 +405,7 @@ class ConsoleSession:
 
     @property
     def total_duration(self):
-        return sum([entry.duration for entry in self.time_entries])
+        return round(sum([entry.duration for entry in self.time_entries]),2)
 
     def list_categories_and_accounts(self):
         """Display available category & account codes."""
