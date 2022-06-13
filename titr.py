@@ -153,12 +153,9 @@ class ConsoleSession:
                     break
 
             print(f"{duration} hr:\t{category}\t{comment}")
-            self.get_user_input(outlook_item = (duration, category, comment))
-            """self.time_entries.append(TimeEntry(
-                duration = duration,
-                comment = comment,
-                category = appt_cat,
-            ))"""
+            ui = self.get_user_input(outlook_item = (duration, category, comment))
+            if ui == 0:
+                break
 
         self._set_normal_mode()
 
@@ -181,20 +178,6 @@ class ConsoleSession:
         cal_filtered = calendar.Items.Restrict(search_str)
 
         return cal_filtered
-
-        # loop through outlook items. For each item:
-        # - Print what will be entered
-        # - Ask for user input:
-        #   Run get_user_input with outlook calendar item
-        #   - Blank input accepts entry as is
-        #   - Entry of '0' skips
-        #   - Otherwise should function the same, keeping
-        #   - calendar data but replacing it with user entries
-        #   - Note that changing category will require
-        #     changing or confirming time
-        #   Modify parse_new_entry to accept calendar item as argument
-        #   If new entry generated, pass calendar item to TimeEntry
-        # Time entry should know what to do with a calendar item
 
     def _set_outlook_mode(self):
         """Set console mode to add items from outlook."""
@@ -226,8 +209,24 @@ class ConsoleSession:
         self.date = new_date
         print(f"Date set to {new_date.isoformat()}")
 
-    def new_function(self, user_input, outlook_item = None):
-        """A function in need of a name lol"""
+    def _add_entry(self, user_input, outlook_item = None):
+        """Add a new entry to the time log.
+
+        Format is <duration> [<category> <account> <comment>]
+        There is no need to type 'add'
+        Duration is required and must be able to be converted to float
+        Type 'ls accounts' and 'ls categories' for available accounts & categories
+        Category must be an integer; account must be a single character
+        Any text after the accounts is considered a comment.
+        All arguments other than duration are optional.
+
+        Some examples:
+        1 2 i this is one hour in category 2 in account 'i'
+        1 this is one hour on default account & category
+        .5 i this is one hour in account 'i'
+        1 2 this is one hour in category 2
+        2.1     (2.1 hrs, default category & account, no comment)
+        """
         entry_args = self._parse_new_entry(user_input)
         if outlook_item:
             if not entry_args:
@@ -243,7 +242,7 @@ class ConsoleSession:
         user_input: str = input('> ')
         match user_input.split(' '):
             case[str(duration), *entry_args] if is_float(duration):
-                self.new_function(user_input, outlook_item)
+                self._add_entry(user_input, outlook_item)
             case[alias, *_] if self._is_alias(alias, 'add'):
                 # self.command_list['help'][1](command='add')
                 self.help_msg(command='add')
@@ -276,6 +275,7 @@ class ConsoleSession:
                 self.undo_last()
             case[alias, *_] if self._is_alias(alias, 'quit'):
                 self.command_list['quit'][1]()
+                return(0)
             case[alias, str(command)] if self._is_alias(alias, 'help'):
                 for name, cmd in self.command_list.items():
                     if self._is_alias(command, name):
@@ -285,7 +285,7 @@ class ConsoleSession:
             case[alias] if self._is_alias(alias, 'help'):
                 self.help_msg()
             case[alias] if self._is_alias(alias, 'null_cmd'): # pragma: no cover
-                self.new_function(user_input, outlook_item)
+                self._add_entry(user_input, outlook_item)
                 #pass
             case _:
                 raise ValueError(f'Invalid input: "{" ".join(user_input)}"')
@@ -346,61 +346,6 @@ class ConsoleSession:
 
         return new_entry_arguments
 
-    def _parse_old_entry(self, duration: float, *entry_args) -> None:
-        match entry_args:
-            # No arguments, add entry with all defaults
-            case ([] | '' | None):
-                self.time_entries.append(TimeEntry(duration, date=self.date))
-            # All arguments including comment
-            case (str(cat_key), str(account), *comment) if (
-                    is_float(cat_key) and
-                    int(cat_key) in CATEGORIES.keys() and
-                    account.upper() in ACCOUNTS.keys()
-                ):
-                self.time_entries.append(TimeEntry(
-                    duration,
-                    category=int(cat_key),
-                    account=account,
-                    comment=' '.join(comment).strip(),
-                    date=self.date,
-                ))
-            # Category argument, no account argument
-            case (str(cat_key), *comment) if (
-                    is_float(cat_key) and
-                    int(cat_key) in CATEGORIES.keys()
-                ):
-                self.time_entries.append(TimeEntry(
-                    duration,
-                    category=int(cat_key),
-                    comment=(' '.join(comment)).strip(),
-                    date=self.date,
-                ))
-            # Account argument, no category argument
-            case (str(account), *comment) if (
-                    not is_float(account) and
-                    account.upper() in ACCOUNTS.keys()
-                ):
-                self.time_entries.append(TimeEntry(
-                    duration,
-                    account=account,
-                    comment=' '.join(comment).strip(),
-                    date=self.date,
-                ))
-            # Comment only
-            case (str(cat_key), str(account), *comment) if (
-                    not is_float(cat_key) and
-                    account.upper() not in ACCOUNTS.keys()
-                ):
-                self.time_entries.append(TimeEntry(
-                    duration,
-                    comment=(cat_key + ' ' + account + ' ' + ' '.join(comment)).strip(),
-                    date=self.date,
-                ))
-            case _:
-                raise ValueError('Invalid arguments for time entry')
-
-        print(self.time_entries[-1])
-
     def scale_time_entries(self, target_total) -> None:
         """Scale time entries by weighted average to sum to a target total duration."""
         unscaled_total: float = sum([entry.duration for entry in self.time_entries])
@@ -454,27 +399,6 @@ class ConsoleSession:
     @property
     def total_duration(self):
         return sum([entry.duration for entry in self.time_entries])
-
-    def _add_entry(self): # pragma: no cover
-        """Add a new entry to the time log.
-
-        Format is <duration> [<category> <account> <comment>]
-        There is no need to type 'add'
-        Duration is required and must be able to be converted to float
-        Type 'ls accounts' and 'ls categories' for available accounts & categories
-        Category must be an integer; account must be a single character
-        Any text after the accounts is considered a comment.
-        All arguments other than duration are optional.
-
-        Some examples:
-        1 2 i this is one hour in category 2 in account 'i'
-        1 this is one hour on default account & category
-        .5 i this is one hour in account 'i'
-        1 2 this is one hour in category 2
-        2.1     (2.1 hrs, default category & account, no comment)
-        """
-        # documentation only function
-        pass
 
     def list_categories_and_accounts(self):
         """Display available category & account codes."""

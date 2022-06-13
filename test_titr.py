@@ -170,45 +170,14 @@ valid_time_entries = [
 def test_parse_new_entry(console, user_input, output_dict):
     assert console._parse_new_entry(user_input) == output_dict
 
-@pytest.mark.skip(reason="refactoring...")
-def test_old_parse_new_entry(console, monkeypatch):
-    default_acct = 'N'
-    default_cat = 5
-    monkeypatch.setattr(titr, 'TimeEntry', MockTimeEntry)
-    # nested tuple to test parsing
-    # first element is duration, processed in get_user_input
-    # second element is split string, processed in get_user_input
-    # second nested tuple is expected duration, account,
-    # category, and comment string
-    valid_time_entries = [
-        (3, [], (3, default_cat, default_acct, '')),
-        #  (1, ['2'], (1, 2, default_acct, '')),
-        (1, '2 i'.split(' '), (1, 2, 'i', '')),
-        (7, '2 i test string'.split(' '), (7, 2, 'i', 'test string')),
-        (7, '2 i TEST STRING'.split(' '), (7, 2, 'i', 'TEST STRING')),
-        (.8731, 'i test string'.split(' '), (.8731, default_cat, 'i', 'test string')),
-        (0.25, '2 a damn good feeling is a damn good time, wait, "who wrote my rhyme"?'.split(' '),
-            (0.25, 2, default_acct, 'a damn good feeling is a damn good time, wait, "who wrote my rhyme"?')
-        ),
-        (1, 'test string'.split(' '), (1, default_cat, default_acct, 'test string')),
-    ]
 
-    for entry in valid_time_entries:
-        duration, arg_str = entry[0], entry[1]
-        console._parse_new_entry(duration, *arg_str)
-        assert console.time_entries[0].duration == entry[2][0]
-        assert console.time_entries[0].category == entry[2][1]
-        assert console.time_entries[0].account == entry[2][2]
-        assert console.time_entries[0].comment == entry[2][3]
-        console.time_entries = []
-
-    invalid_time_entries = [
-        (1, [99, 'category out of bounds']),
-        (2, [2, 'z', 'account out of bounds.']),
-    ]
-    for entry in invalid_time_entries:
-        with pytest.raises(ValueError):
-            console._parse_new_entry(entry[0], *entry[1])
+invalid_time_entries = [
+    ('99 3 i working too much'),
+]
+@pytest.mark.parametrize('invalid_entry', invalid_time_entries)
+def test_parse_invalid_entries(console, invalid_entry):
+    with pytest.raises(ValueError):
+        console._parse_new_entry(invalid_entry)
 
 def test_help_msg(console, monkeypatch, capsys):
     def _add_entry(): # pragma: no cover

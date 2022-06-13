@@ -146,7 +146,7 @@ def mock_appointments(test_appt_parameters):
         appointments.append(MockOutlookAppt(*appt))
     return appointments
 
-def test_import_from_outlook(console, monkeypatch, mock_appointments):
+def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
     def _mock_get_outlook_items():
         return []
     def _mock_set_mode():
@@ -155,12 +155,15 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments):
     monkeypatch.setattr(console, '_set_outlook_mode', _mock_set_mode)
     monkeypatch.setattr(console, '_set_normal_mode', _mock_set_mode)
     monkeypatch.setattr(titr, 'SKIP_EVENT_NAMES', ['Filtered Event'])
+    def _mock_user_input(**kwargs):
+        print("User input mocked.")
+    monkeypatch.setattr(console, 'get_user_input', _mock_user_input)
     with pytest.raises(KeyError):
         console.import_from_outlook()
 
     monkeypatch.setattr(console, 'get_outlook_items', lambda: mock_appointments)
     console.import_from_outlook()
-    assert len(console.time_entries) == 4
+    captured = capsys.readouterr()
     for entry in console.time_entries:
         for subject in [
                 'Filtered Event',
@@ -168,8 +171,15 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments):
                 'Filtered Event',
                 'All-Day Event',
                 'Out of Office',
-                ]:
-            assert subject not in entry.comment
+            ]:
+            assert subject not in captured.out
+        for subject in [
+                'Test Event #1',
+                'Test Event #1',
+                'Tentative Event',
+                'Working Elsewhere',
+            ]:
+            assert subject in captured.out
 
 
 def test_set_outlook_mode(console):
