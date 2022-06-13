@@ -129,7 +129,49 @@ def test_main(monkeypatch, capsys):
         titr.main()
 
 
-def test_parse_new_entry(console, monkeypatch):
+valid_time_entries = [
+    ('3', { "duration": 3, }),
+    ('1 2 i', {
+        "duration": 1,
+        "category": 2,
+        "account": 'i',
+        }),
+    ('7 2 i test string', {
+        "duration": 7,
+        "category": 2,
+        "account": 'i',
+        "comment": 'test string',
+        }),
+    ('7 2 i TEST STRING', {
+        "duration": 7,
+        "category": 2,
+        "account": 'i',
+        "comment": 'TEST STRING',
+        }),
+    ('.87 i a really "fun" meeting?', {
+        "duration": .87,
+        "account": 'i',
+        "comment": 'a really "fun" meeting?',
+        }),
+    ('.5 2 doing it right', {
+        "duration": .5,
+        "category": 2,
+        "comment": 'doing it right',
+        }),
+    ('1 "no comment lol"', {
+        "duration": 1,
+        "comment": '"no comment lol"',
+        }),
+    ('0 2 i no entry', None),
+    ('0', None),
+    ('', None),
+]
+@pytest.mark.parametrize('user_input, output_dict', valid_time_entries)
+def test_parse_new_entry(console, user_input, output_dict):
+    assert console._parse_new_entry(user_input) == output_dict
+
+@pytest.mark.skip(reason="refactoring...")
+def test_old_parse_new_entry(console, monkeypatch):
     default_acct = 'N'
     default_cat = 5
     monkeypatch.setattr(titr, 'TimeEntry', MockTimeEntry)

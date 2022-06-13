@@ -105,7 +105,7 @@ def test_appt_parameters():
     ]
     return params
 
-#@pytest.mark.skip(reason='Working; connect to outlook time consuming')
+@pytest.mark.skip(reason='Working; connect to outlook time consuming')
 def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypatch,test_appt_parameters):
     test_appointments = []
     for appt in test_appt_parameters:

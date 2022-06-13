@@ -146,17 +146,19 @@ class ConsoleSession:
 
             # TODO: Accept multiple categories
             appt_category = item.Categories.split(',')[0].strip()
-            appt_cat = DEFAULT_CATEGORY
+            category = DEFAULT_CATEGORY
             for key, cat in CATEGORIES.items():
                 if cat == appt_category:
-                    appt_cat = key
+                    category = key
                     break
 
-            self.time_entries.append(TimeEntry(
+            print(f"{duration} hr:\t{category}\t{comment}")
+            self.get_user_input(outlook_item = (duration, category, comment))
+            """self.time_entries.append(TimeEntry(
                 duration = duration,
                 comment = comment,
                 category = appt_cat,
-            ))
+            ))"""
 
         self._set_normal_mode()
 
@@ -196,13 +198,13 @@ class ConsoleSession:
 
     def _set_outlook_mode(self):
         """Set console mode to add items from outlook."""
-        replace_commands = ['outlook', 'date', 'quit', 'null_cmd']
+        replace_commands = ['outlook', 'date', 'quit']
         self.default_commands = dict()
         for cmd in replace_commands:
             self.default_commands[cmd] = self.command_list.pop(cmd)
 
         self.command_list['quit'] = (self.default_commands['quit'][0], self._set_normal_mode)
-        self.command_list['null_cmd'] = ([''], None)
+        #self.command_list['null_cmd'] = ([''], None)
 
     def _set_normal_mode(self):
         """Return console to normal mode."""
@@ -224,18 +226,24 @@ class ConsoleSession:
         self.date = new_date
         print(f"Date set to {new_date.isoformat()}")
 
+    def new_function(self, user_input, outlook_item = None):
+        """A function in need of a name lol"""
+        entry_args = self._parse_new_entry(user_input)
+        if outlook_item:
+            if not entry_args:
+                entry_args = dict()
+            for index, key in enumerate(['duration', 'category', 'comment']):
+                if key not in entry_args.keys():
+                    entry_args[key] = outlook_item[index]
+        if entry_args:
+            self.time_entries.append(TimeEntry(**entry_args))
+            print(self.time_entries[-1])
+
     def get_user_input(self, outlook_item = None) -> None:
-        user_input: str = input('> ').split(' ')
-        match user_input:
+        user_input: str = input('> ')
+        match user_input.split(' '):
             case[str(duration), *entry_args] if is_float(duration):
-                duration = float(duration)
-                if duration > MAX_DURATION:
-                    raise ValueError("You're working too much.")
-                if duration < 0:
-                    raise ValueError("You can't unwork.")
-                if duration == 0: # pragma: no cover
-                    return None  # zero duration does nothing
-                self._parse_new_entry(duration, *entry_args)
+                self.new_function(user_input, outlook_item)
             case[alias, *_] if self._is_alias(alias, 'add'):
                 # self.command_list['help'][1](command='add')
                 self.help_msg(command='add')
@@ -277,11 +285,68 @@ class ConsoleSession:
             case[alias] if self._is_alias(alias, 'help'):
                 self.help_msg()
             case[alias] if self._is_alias(alias, 'null_cmd'): # pragma: no cover
-                pass
+                self.new_function(user_input, outlook_item)
+                #pass
             case _:
                 raise ValueError(f'Invalid input: "{" ".join(user_input)}"')
 
-    def _parse_new_entry(self, duration: float, *entry_args) -> None:
+    def _parse_new_entry(self, user_input) -> None:
+        if user_input == '':
+            return None
+        user_input = user_input.split(' ')
+        duration = float(user_input[0])
+        if duration > MAX_DURATION:
+            raise ValueError("You're working too much.")
+        if duration < 0:
+            raise ValueError("You can't unwork.")
+        if duration == 0:
+            return None
+        new_entry_arguments = { 'duration': duration }
+        entry_args = user_input[1:]
+        match entry_args:
+            # No arguments, add entry with all defaults
+            case ([] | '' | None):
+                pass
+            # All arguments including comment
+            case (str(cat_key), str(account), *comment) if (
+                    is_float(cat_key) and
+                    int(cat_key) in CATEGORIES.keys() and
+                    account.upper() in ACCOUNTS.keys()
+                ):
+                new_entry_arguments['category'] = int(cat_key)
+                new_entry_arguments['account'] = account
+                if comment:
+                    new_entry_arguments['comment'] = ' '.join(comment).strip()
+            # Category argument, no account argument
+            case (str(cat_key), *comment) if (
+                    is_float(cat_key) and
+                    int(cat_key) in CATEGORIES.keys()
+                ):
+                new_entry_arguments['category'] = int(cat_key)
+                if comment:
+                    new_entry_arguments['comment'] = ' '.join(comment).strip()
+            # Account argument, no category argument
+            case (str(account), *comment) if (
+                    not is_float(account) and
+                    account.upper() in ACCOUNTS.keys()
+                ):
+                new_entry_arguments['account'] = account
+                if comment:
+                    new_entry_arguments['comment'] = ' '.join(comment).strip()
+            # Comment only
+            case (str(cat_key), str(account), *comment) if (
+                    not is_float(cat_key) and
+                    account.upper() not in ACCOUNTS.keys()
+                ):
+                comment=(cat_key + ' ' + account + ' ' + ' '.join(comment)).strip()
+                if comment:
+                    new_entry_arguments['comment'] = comment
+            case _:
+                raise ValueError('Invalid arguments for time entry')
+
+        return new_entry_arguments
+
+    def _parse_old_entry(self, duration: float, *entry_args) -> None:
         match entry_args:
             # No arguments, add entry with all defaults
             case ([] | '' | None):
