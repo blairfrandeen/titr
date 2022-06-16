@@ -208,8 +208,11 @@ valid_time_entries = [
             "comment": '"no comment lol"',
         },
     ),
-    ("0 2 i no entry", 0),
-    ("0", 0),
+    (
+        "0 2 i no entry",
+        {"duration": 0, "comment": "no entry", "category": 2, "account": "i"},
+    ),
+    ("0", {"duration": 0}),
     ("", None),
 ]
 

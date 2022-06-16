@@ -118,7 +118,7 @@ class ConsoleSession:
         self.date = datetime.date.today()
         exit.__doc__ = "Quit"
 
-    def get_user_input(self, outlook_item=None) -> None:
+    def get_user_input(self, outlook_item=None) -> Optional[int]:
         user_input: str = input("> ")
         match user_input.split(" "):
             case [str(duration), *entry_args] if is_float(duration):
@@ -168,7 +168,6 @@ class ConsoleSession:
                 self.help_msg()
             case [alias] if self._is_alias(alias, "null_cmd"):  # pragma: no cover
                 self._add_entry(user_input, outlook_item)
-                # pass
             case _:
                 raise ValueError(f'Invalid input: "{" ".join(user_input)}"')
 
@@ -197,7 +196,7 @@ class ConsoleSession:
             for index, key in enumerate(["duration", "category", "comment"]):
                 if key not in entry_args.keys():
                     entry_args[key] = outlook_item[index]
-        if entry_args:
+        if entry_args and entry_args["duration"] != 0:
             self.time_entries.append(TimeEntry(**entry_args))
             print(self.time_entries[-1])
 
@@ -257,7 +256,6 @@ class ConsoleSession:
             self.default_commands["quit"][0],
             self._set_normal_mode,
         )
-        # self.command_list['null_cmd'] = ([''], None)
 
     def _set_normal_mode(self):
         """Return console to normal mode."""
@@ -279,7 +277,11 @@ class ConsoleSession:
         self.date = new_date
         print(f"Date set to {new_date.isoformat()}")
 
-    def _parse_new_entry(self, user_input) -> None:
+    def _parse_new_entry(self, user_input) -> Optional[dict]:
+        """Parse a user input into a time entry.
+
+        Returns None for blank entry
+        Else returns a dict to be passed to a new TimeEntry"""
         if user_input == "":
             return None
         user_input = user_input.split(" ")
@@ -288,8 +290,6 @@ class ConsoleSession:
             raise ValueError("You're working too much.")
         if duration < 0:
             raise ValueError("You can't unwork.")
-        if duration == 0:
-            return 0
         new_entry_arguments = {"duration": duration}
         entry_args = user_input[1:]
         match entry_args:
