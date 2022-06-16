@@ -191,7 +191,7 @@ class ConsoleSession:
         2.1     (2.1 hrs, default category & account, no comment)
         """
         entry_args = self._parse_new_entry(user_input)
-        if outlook_item:
+        if outlook_item and entry_args != 0:
             if not entry_args:
                 entry_args = dict()
             for index, key in enumerate(["duration", "category", "comment"]):
@@ -289,7 +289,7 @@ class ConsoleSession:
         if duration < 0:
             raise ValueError("You can't unwork.")
         if duration == 0:
-            return None
+            return 0
         new_entry_arguments = {"duration": duration}
         entry_args = user_input[1:]
         match entry_args:

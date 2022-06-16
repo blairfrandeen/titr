@@ -208,8 +208,8 @@ valid_time_entries = [
             "comment": '"no comment lol"',
         },
     ),
-    ("0 2 i no entry", None),
-    ("0", None),
+    ("0 2 i no entry", 0),
+    ("0", 0),
     ("", None),
 ]
 
