@@ -30,11 +30,11 @@ MAX_DURATION: float = 9  # maximum duration that can be entered for any task
 DEFAULT_CATEGORY: int = 6
 DEFAULT_ACCOUNT: str = 'O'
 
-OUTLOOK_ACCOUNT = 'Blair.S.Frandeen@jpl.nasa.gov'
-CALENDAR_NAME = 'Calendar'
-SKIP_ALLDAY_EVENTS = True
-SKIP_EVENT_NAMES = ['Lunch']    # skip outlook events with these titles
-SKIP_EVENT_STATUS = [0, 3]      # skip outlook events with status free or out of office
+OUTLOOK_ACCOUNT: str = 'blairfrandeen@outlook.com'
+CALENDAR_NAME: str = 'Calendar'
+SKIP_ALLDAY_EVENTS: bool = True
+SKIP_EVENT_NAMES: List[str] = ['Lunch']    # skip outlook events with these titles
+SKIP_EVENT_STATUS: List[int] = [0, 3]      # skip outlook events with status free or out of office
 
 CATEGORIES: Dict[int, str] = {
     2: "Deep Work",
@@ -120,131 +120,6 @@ class ConsoleSession:
         self.date = datetime.date.today()
         exit.__doc__ = "Quit"
 
-
-    def _is_alias(self, alias, command):
-        """Test if a user command is an alias for a known command."""
-        if command not in self.command_list.keys():
-            return False
-        return alias.lower() in self.command_list[command][0]
-
-    def import_from_outlook(self):
-        """Import appointments from outlook."""
-        print('Getting outlook items...')
-        outlook_items = self.get_outlook_items()
-        if len(outlook_items) == 0:
-            raise KeyError(f"No outlook items found for {self.date}")
-
-        print(f"Found total of {len(outlook_items)}")
-        self._set_outlook_mode()
-        for item in outlook_items:
-            if item.AllDayEvent is True and SKIP_ALLDAY_EVENTS is True:
-                continue
-            if item.Subject in SKIP_EVENT_NAMES:
-                continue
-            if item.BusyStatus in SKIP_EVENT_STATUS:
-                continue
-            comment = item.Subject
-            duration = item.Duration / 60   # convert minutes to hours
-
-            # TODO: Accept multiple categories
-            appt_category = item.Categories.split(',')[0].strip()
-            category = DEFAULT_CATEGORY
-            for key, cat in CATEGORIES.items():
-                if cat == appt_category:
-                    category = key
-                    break
-
-            # TODO: Improve formatting
-            print(f"{round(duration,2)} hr:\t{category}\t{comment}")
-            ui = self.get_user_input(outlook_item = (duration, category, comment))
-            if ui == 0:
-                break
-
-        self._set_normal_mode()
-
-    def get_outlook_items(self):
-        """Read calendar items from Outlook."""
-        # Time format string requried by MAPI to filter by date
-        MAPI_TIME_FORMAT = "%m-%d-%Y %I:%M %p"
-        # connect to outlook
-        outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
-        calendar = outlook.Folders.Item(OUTLOOK_ACCOUNT).Folders(CALENDAR_NAME)
-        cal_items = calendar.Items
-        cal_items.Sort("Start", False)
-        cal_items.IncludeRecurrences = True
-        search_start = self.date
-        search_end = search_start + datetime.timedelta(days=1)
-        search_str = ''.join([
-                "[Start] >= '",
-                search_start.strftime(MAPI_TIME_FORMAT),
-                "' AND [End] <= '",
-                search_end.strftime(MAPI_TIME_FORMAT),
-                "'",
-                ])
-
-        cal_filtered = cal_items.Restrict(search_str)
-
-        return cal_filtered
-
-    def _set_outlook_mode(self):
-        """Set console mode to add items from outlook."""
-        replace_commands = ['outlook', 'date', 'quit']
-        self.default_commands = dict()
-        for cmd in replace_commands:
-            self.default_commands[cmd] = self.command_list.pop(cmd)
-
-        self.command_list['quit'] = (self.default_commands['quit'][0], self._set_normal_mode)
-        #self.command_list['null_cmd'] = ([''], None)
-
-    def _set_normal_mode(self):
-        """Return console to normal mode."""
-        for cmd in self.default_commands.keys():
-
-            self.command_list[cmd] = self.default_commands[cmd]
-
-    def set_date(self, new_date=datetime.date.today()):
-        """Set the date for time entries.
-
-        Enter 'date' with no arguments to set date to today.
-        Enter 'date -<n>' where n is an integer to set date n days back
-            for example 'date -1' will set it to yesterday.
-        Enter 'date yyyy-mm-dd' to set to any custom date.
-        Dates must not be in the future.
-        """
-        if not isinstance(new_date, datetime.date):
-            raise TypeError('Wrong argument passed to set_date')
-        self.date = new_date
-        print(f"Date set to {new_date.isoformat()}")
-
-    def _add_entry(self, user_input, outlook_item = None):
-        """Add a new entry to the time log.
-
-        Format is <duration> [<category> <account> <comment>]
-        There is no need to type 'add'
-        Duration is required and must be able to be converted to float
-        Type 'ls accounts' and 'ls categories' for available accounts & categories
-        Category must be an integer; account must be a single character
-        Any text after the accounts is considered a comment.
-        All arguments other than duration are optional.
-
-        Some examples:
-        1 2 i this is one hour in category 2 in account 'i'
-        1 this is one hour on default account & category
-        .5 i this is one hour in account 'i'
-        1 2 this is one hour in category 2
-        2.1     (2.1 hrs, default category & account, no comment)
-        """
-        entry_args = self._parse_new_entry(user_input)
-        if outlook_item:
-            if not entry_args:
-                entry_args = dict()
-            for index, key in enumerate(['duration', 'category', 'comment']):
-                if key not in entry_args.keys():
-                    entry_args[key] = outlook_item[index]
-        if entry_args:
-            self.time_entries.append(TimeEntry(**entry_args))
-            print(self.time_entries[-1])
-
     def get_user_input(self, outlook_item = None) -> None:
         user_input: str = input('> ')
         match user_input.split(' '):
@@ -296,6 +171,113 @@ class ConsoleSession:
                 #pass
             case _:
                 raise ValueError(f'Invalid input: "{" ".join(user_input)}"')
+
+    def _add_entry(self, user_input, outlook_item = None):
+        """Add a new entry to the time log.
+
+        Format is <duration> [<category> <account> <comment>]
+        There is no need to type 'add'
+        Duration is required and must be able to be converted to float
+        Type 'ls accounts' and 'ls categories' for available accounts & categories
+        Category must be an integer; account must be a single character
+        Any text after the accounts is considered a comment.
+        All arguments other than duration are optional.
+
+        Some examples:
+        1 2 i this is one hour in category 2 in account 'i'
+        1 this is one hour on default account & category
+        .5 i this is one hour in account 'i'
+        1 2 this is one hour in category 2
+        2.1     (2.1 hrs, default category & account, no comment)
+        """
+        entry_args = self._parse_new_entry(user_input)
+        if outlook_item:
+            if not entry_args:
+                entry_args = dict()
+            for index, key in enumerate(['duration', 'category', 'comment']):
+                if key not in entry_args.keys():
+                    entry_args[key] = outlook_item[index]
+        if entry_args:
+            self.time_entries.append(TimeEntry(**entry_args))
+            print(self.time_entries[-1])
+
+
+    def _is_alias(self, alias, command):
+        """Test if a user command is an alias for a known command."""
+        if command not in self.command_list.keys():
+            return False
+        return alias.lower() in self.command_list[command][0]
+
+    def import_from_outlook(self):
+        """Import appointments from outlook."""
+        print('Getting outlook items...', end='')
+        outlook_items = get_outlook_items(self.date)
+        if outlook_items is not None:
+            # Note: using len(outlook_items) or outlook_items.Count
+            # will return an undefined value. 
+            num_items = sum(1 for _ in outlook_items)
+            if num_items == 0:
+                raise KeyError(f"No outlook items found for {self.date}")
+
+            print(f"Found total of {num_items}")
+            self._set_outlook_mode()
+            for item in outlook_items:
+                if item.AllDayEvent is True and SKIP_ALLDAY_EVENTS is True:
+                    continue
+                if item.Subject in SKIP_EVENT_NAMES:
+                    continue
+                if item.BusyStatus in SKIP_EVENT_STATUS:
+                    continue
+                comment = item.Subject
+                duration = item.Duration / 60   # convert minutes to hours
+
+                # TODO: Accept multiple categories
+                appt_category = item.Categories.split(',')[0].strip()
+                category = DEFAULT_CATEGORY
+                for key, cat in CATEGORIES.items():
+                    if cat == appt_category:
+                        category = key
+                        break
+
+                # TODO: Improve formatting
+                print(f"{round(duration,2)} hr:\t{category}\t{comment}")
+                ui = self.get_user_input(outlook_item = (duration, category, comment))
+                if ui == 0:
+                    break
+
+            self._set_normal_mode()
+
+
+    def _set_outlook_mode(self):
+        """Set console mode to add items from outlook."""
+        replace_commands = ['outlook', 'date', 'quit']
+        self.default_commands = dict()
+        for cmd in replace_commands:
+            self.default_commands[cmd] = self.command_list.pop(cmd)
+
+        self.command_list['quit'] = (self.default_commands['quit'][0], self._set_normal_mode)
+        #self.command_list['null_cmd'] = ([''], None)
+
+    def _set_normal_mode(self):
+        """Return console to normal mode."""
+        for cmd in self.default_commands.keys():
+
+            self.command_list[cmd] = self.default_commands[cmd]
+
+    def set_date(self, new_date=datetime.date.today()):
+        """Set the date for time entries.
+
+        Enter 'date' with no arguments to set date to today.
+        Enter 'date -<n>' where n is an integer to set date n days back
+            for example 'date -1' will set it to yesterday.
+        Enter 'date yyyy-mm-dd' to set to any custom date.
+        Dates must not be in the future.
+        """
+        if not isinstance(new_date, datetime.date):
+            raise TypeError('Wrong argument passed to set_date')
+        self.date = new_date
+        print(f"Date set to {new_date.isoformat()}")
+
 
     def _parse_new_entry(self, user_input) -> None:
         if user_input == '':
@@ -412,6 +394,46 @@ class ConsoleSession:
         for dictionary, name in [(ACCOUNTS, 'ACCOUNTS'), (CATEGORIES, 'CATEGORIES')]: # pragma: no cover
             disp_dict(dictionary, name)
 
+def get_outlook_items(search_date: datetime.date):
+    """Read calendar items from Outlook."""
+    # connect to outlook
+    # TODO: Move to separate function
+    try:
+        outlook = win32com.client.Dispatch("Outlook.Application")
+        namespace = outlook.GetNamespace("MAPI")
+    except pywintypes.com_error as err:
+        print(f'Error connecting to Outlook Namespace: {err}')
+        return None
+    try:
+        acct = namespace.Folders.Item(OUTLOOK_ACCOUNT)
+    except pywintypes.com_error as err:
+        print(f'Error connecting to account "{OUTLOOK_ACCOUNT}": {err}')
+        return None
+    try:
+        calendar = acct.Folders(CALENDAR_NAME)
+    except pywintypes.com_error as err:
+        print(f'Calendar with name "{CALENDAR_NAME}" not found: {err}')
+        return None
+
+    # Time format string requried by MAPI to filter by date
+    MAPI_TIME_FORMAT = "%m-%d-%Y %I:%M %p"
+    cal_items = calendar.Items
+    cal_items.Sort("Start", False)
+    cal_items.IncludeRecurrences = True
+    search_end = search_date + datetime.timedelta(days=1)
+    search_str = ''.join([
+            "[Start] >= '",
+            search_date.strftime(MAPI_TIME_FORMAT),
+            "' AND [End] <= '",
+            search_end.strftime(MAPI_TIME_FORMAT),
+            "'",
+            ])
+
+    cal_filtered = cal_items.Restrict(search_str)
+
+    return cal_filtered
+
+
 def disp_dict(dictionary: dict, dict_name: str):# pragma: no cover
     """Display items in a dict"""
     print(f"{dict_name}: ")
@@ -455,11 +477,7 @@ def main() -> None:
             cs.get_user_input()
         except NotImplementedError:
             print('not implemented')
-        except ValueError as err:
-            print(f"Error: {err}")
-        except TypeError as err:
-            print(f"Error: {err}")
-        except KeyError as err:
+        except (ValueError, TypeError, KeyError) as err:
             print(f"Error: {err}")
 
 

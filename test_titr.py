@@ -186,7 +186,7 @@ def test_help_msg(console, monkeypatch, capsys):
     def _clear(): # pragma: no cover
         """clear"""
         return None
-    _command_list: Dict[str, Tuple[List[str], Callable]] = {
+    _command_list = {
         'add':      (['add'],           _add_entry),
         'clear':    (["clear"],         _clear),
     }

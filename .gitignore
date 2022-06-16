@@ -3,3 +3,4 @@ __pycache__/
 .coverage
 *.csv
 *.db
+.vscode/settings.json

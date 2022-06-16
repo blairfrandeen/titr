@@ -94,19 +94,19 @@ def make_appointment(calendar_folder):
 def test_appt_parameters():
     # Make a bunch of mock appointments
     params = [
+        (datetime.time(0), 1440, "All-Day Event", "Meetings", 0),
         (datetime.time(8), 90, "Test Event #1", "Deep Work", 2),
         (datetime.time(10), 30, "Test Event #2", "Meetings", 2),
         (datetime.time(11), 30, "Tentative Event", "Meetings", 1),
-        (datetime.time(11), 90, "Free Event", "Meetings", 0),
+        (datetime.time(11, 15), 90, "Free Event", "Meetings", 0),
         (datetime.time(12), 60, "Filtered Event", "Meetings", 2),
-        (datetime.time(0), 1440, "All-Day Event", "Meetings", 0),
         (datetime.time(13), 120, "Out of Office", "Meetings", 3),
         (datetime.time(15), 120, "Working Elsewhere", "Meetings", 4),
     ]
     return params
 
-@pytest.mark.skip(reason='Working; connect to outlook time consuming')
-def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypatch,test_appt_parameters):
+# @pytest.mark.skip(reason='Working; connect to outlook time consuming')
+def test_get_outlook_items(make_appointment, monkeypatch,test_appt_parameters):
     test_appointments = []
     for appt in test_appt_parameters:
         test_appointments.append(make_appointment(*appt))
@@ -114,17 +114,27 @@ def test_get_outlook_items(console, calendar_folder, make_appointment, monkeypat
     # Set titr to look in new test folder
     monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
     monkeypatch.setattr("titr.CALENDAR_NAME", TEST_CALENDAR_NAME)
-    console.date = TEST_DAY
 
-    outlook_items = console.get_outlook_items()
-    return outlook_items
+    outlook_items = titr.get_outlook_items(TEST_DAY)
 
 
-    assert len(outlook_items) == len(test_appt_parameters)
+    assert sum(1 for _ in outlook_items) == len(test_appt_parameters)
     for index, appt in enumerate(outlook_items):
         assert outlook_items[index].Duration == test_appt_parameters[index][1]
         assert outlook_items[index].Subject == test_appt_parameters[index][2]
         assert outlook_items[index].Categories == test_appt_parameters[index][3]
+        assert outlook_items[index].BusyStatus == test_appt_parameters[index][4]
+    
+    # Test error handling for connecting to outlook
+    # Test bad account
+    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", 'not an account')
+    # with pytest.raises(pywintypes.com_error):
+    #     console.get_outlook_items()
+    # Test bad calendar
+    monkeypatch.setattr("titr.CALENDAR_NAME", 'not a calendar')
+    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
+    # with pytest.raises(pywintypes.com_error):
+    #     console.get_outlook_items()
 
 
 class MockOutlookAppt:
@@ -147,11 +157,11 @@ def mock_appointments(test_appt_parameters):
     return appointments
 
 def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
-    def _mock_get_outlook_items():
+    def _mock_get_outlook_items(_):
         return []
     def _mock_set_mode():
         print("Mode changed.")
-    monkeypatch.setattr(console, 'get_outlook_items', _mock_get_outlook_items)
+    monkeypatch.setattr(titr, 'get_outlook_items', _mock_get_outlook_items)
     monkeypatch.setattr(console, '_set_outlook_mode', _mock_set_mode)
     monkeypatch.setattr(console, '_set_normal_mode', _mock_set_mode)
     monkeypatch.setattr(titr, 'SKIP_EVENT_NAMES', ['Filtered Event'])
@@ -161,7 +171,7 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
     with pytest.raises(KeyError):
         console.import_from_outlook()
 
-    monkeypatch.setattr(console, 'get_outlook_items', lambda: mock_appointments)
+    monkeypatch.setattr(titr, 'get_outlook_items', lambda _: mock_appointments)
     console.import_from_outlook()
     captured = capsys.readouterr()
     for entry in console.time_entries:
