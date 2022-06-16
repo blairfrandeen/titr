@@ -8,8 +8,8 @@ https://github.com/blairfrandeen/titr
 """
 
 import datetime
-import time
 
+# TODO: Test cases for missing pyperclip & win32com.client modules
 try:
     import pyperclip
 except ModuleNotFoundError: # pragma: no cover
@@ -98,6 +98,7 @@ class ConsoleSession:
         self.command_list: Dict[str, Tuple[List[str], Callable]] = {
             'add':      (['add'],           self._add_entry),
             'clear':    (["clear"],         self.clear),
+            'clip':     (["clip"],          self.copy_output),
             'commit':   (['c', 'commit'],   None),      # not implemented
             'date':     (['d', 'date'],     self.set_date),
             'help':     (["h", "help"],     self.help_msg),
@@ -112,10 +113,6 @@ class ConsoleSession:
         if pywintypes is not None and win32com.client is not None:
             self.command_list['outlook'] = (
                 ['o', 'outlook'],  self.import_from_outlook
-            )
-        if pyperclip is not None:
-            self.command_list['clip'] = (
-                ["clip"],          self.copy_output
             )
         self.date = datetime.date.today()
         exit.__doc__ = "Quit"
@@ -134,7 +131,7 @@ class ConsoleSession:
                 if pyperclip is not None:
                     self.copy_output()
                 else:
-                    raise ImportError('Unable to copy to clipboard.')
+                    raise ImportError('No clipboard functionality; please install pyperclip')
             case[alias, *_] if self._is_alias(alias, 'commit'):
                 raise NotImplementedError
             case[alias] if self._is_alias(alias, 'date'):
@@ -477,7 +474,7 @@ def main() -> None:
             cs.get_user_input()
         except NotImplementedError:
             print('not implemented')
-        except (ValueError, TypeError, KeyError) as err:
+        except (ValueError, TypeError, KeyError, ImportError) as err:
             print(f"Error: {err}")
 
 
