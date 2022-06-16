@@ -8,20 +8,6 @@ https://github.com/blairfrandeen/titr
 """
 
 import datetime
-
-# TODO: Test cases for missing pyperclip & win32com.client modules
-try:
-    import pyperclip
-except ModuleNotFoundError:  # pragma: no cover
-    pyperclip = None
-
-try:
-    import pywintypes
-    import win32com.client
-except ModuleNotFoundError:
-    pywintypes = None
-    win32com.client = None
-
 from typing import Optional, Tuple, Dict, List, Callable
 
 # TODO: Move all defaults to user-editable config file
@@ -113,8 +99,6 @@ class ConsoleSession:
             "scale": (["s", "scale"], self.scale_time_entries),
             "undo": (["z", "undo"], self.undo_last),
         }
-        if pywintypes is not None and win32com.client is not None:
-            self.command_list["outlook"] = (["o", "outlook"], self.import_from_outlook)
         self.date = datetime.date.today()
         exit.__doc__ = "Quit"
 
@@ -129,12 +113,7 @@ class ConsoleSession:
             case [alias, *_] if self._is_alias(alias, "clear"):
                 self.clear()
             case [alias, *_] if self._is_alias(alias, "clip"):
-                if pyperclip is not None:
-                    self.copy_output()
-                else:
-                    raise ImportError(
-                        "No clipboard functionality; please install pyperclip"
-                    )
+                self.copy_output()
             case [alias, *_] if self._is_alias(alias, "commit"):
                 raise NotImplementedError
             case [alias] if self._is_alias(alias, "date"):
@@ -350,6 +329,8 @@ class ConsoleSession:
 
     def copy_output(self):
         """Copy output to clipboard."""
+        import pyperclip
+
         output_str = ""
         for entry in self.time_entries:
             output_str += entry.tsv_str
@@ -400,6 +381,9 @@ class ConsoleSession:
 def get_outlook_items(search_date: datetime.date):
     """Read calendar items from Outlook."""
     # connect to outlook
+    import pywintypes
+    import win32com.client
+
     # TODO: Move to separate function
     try:
         outlook = win32com.client.Dispatch("Outlook.Application")
@@ -482,8 +466,13 @@ def main() -> None:
             cs.get_user_input()
         except NotImplementedError:
             print("not implemented")
-        except (ValueError, TypeError, KeyError, ImportError) as err:
+        except (ValueError, TypeError, KeyError) as err:
             print(f"Error: {err}")
+        except ImportError as err:
+            print(err)
+            print(
+                "Missing depedency. Try 'pip install pywin32' or 'pip install pyperclip'"
+            )
 
 
 if __name__ == "__main__":
