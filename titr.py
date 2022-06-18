@@ -102,8 +102,8 @@ class ConsoleSession:
         self.date = datetime.date.today()
         exit.__doc__ = "Quit"
 
-    def get_user_input(self, outlook_item=None) -> Optional[int]:
-        user_input: str = input("> ")
+    def get_user_input(self, outlook_item=None, input_str="> ") -> Optional[int]:
+        user_input: str = input(input_str)
         match user_input.split(" "):
             case [str(duration), *entry_args] if is_float(duration):
                 self._add_entry(user_input, outlook_item)
@@ -187,7 +187,6 @@ class ConsoleSession:
 
     def import_from_outlook(self):
         """Import appointments from outlook."""
-        print("Getting outlook items...", end="")
         outlook_items = get_outlook_items(self.date)
         if outlook_items is not None:
             # Note: using len(outlook_items) or outlook_items.Count
@@ -196,7 +195,7 @@ class ConsoleSession:
             if num_items == 0:
                 raise KeyError(f"No outlook items found for {self.date}")
 
-            print(f"Found total of {num_items}")
+            print(f"Found total of {num_items} events for {self.date}:")
             self._set_outlook_mode()
             for item in outlook_items:
                 if item.AllDayEvent is True and SKIP_ALLDAY_EVENTS is True:
@@ -217,12 +216,16 @@ class ConsoleSession:
                         break
 
                 # TODO: Improve formatting
-                print(f"{round(duration,2)} hr:\t{category}\t{comment}")
-                ui = self.get_user_input(outlook_item=(duration, category, comment))
+                event_str = f"{comment}\n{CATEGORIES[category]} - {round(duration,2)} hr > "
+                #  print(f"{round(duration,2)} hr:\t{category}\t{comment}")
+                ui = self.get_user_input(outlook_item=(duration, category, comment), input_str = event_str)
+
+                # TODO: Better handling of quitting outlook mode
                 if ui == 0:  # pragma: no cover
                     break
 
             self._set_normal_mode()
+            self.preview_output()
 
     def _set_outlook_mode(self):
         """Set console mode to add items from outlook."""
