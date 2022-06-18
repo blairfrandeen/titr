@@ -222,15 +222,33 @@ def test_parse_new_entry(console, user_input, output_dict):
     assert console._parse_new_entry(user_input) == output_dict
 
 
-invalid_time_entries = [
-    ("99 3 i working too much"),
-]
-
-
-@pytest.mark.parametrize("invalid_entry", invalid_time_entries)
+@pytest.mark.parametrize(
+    "invalid_entry",
+    [
+        "99 3 i working too much",
+        "hi there!",
+        "-1 2 i",
+        "9 34 q wtf",
+    ],
+)
 def test_parse_invalid_entries(console, invalid_entry):
     with pytest.raises(ValueError):
         console._parse_new_entry(invalid_entry)
+
+
+def test_add_entry(console, monkeypatch):
+    mock_inputs = ["0", "1 2 i terst"]
+    mock_parse = {"duration": 5, "category": 3, "comment": "test item"}
+
+    monkeypatch.setattr(console, "_parse_new_entry", lambda _: mock_parse)
+    console._add_entry(mock_inputs)
+    assert console.time_entries[0].duration == 5
+    mock_parse["duration"] = 4
+    console._add_entry(mock_inputs, outlook_item=(5, 3, "1"))
+    assert console.time_entries[1].duration == 4
+    mock_parse = None
+    console._add_entry(mock_inputs, outlook_item=(2, 2, "5"))
+    assert console.time_entries[2].duration == 2
 
 
 def test_help_msg(console, monkeypatch, capsys):
@@ -314,6 +332,19 @@ def test_get_user_input(console, monkeypatch, capsys):
     monkeypatch.setattr("builtins.input", lambda _: "help me!")
     with pytest.raises(ValueError):
         console.get_user_input()
+
+    monkeypatch.setattr("builtins.input", lambda _: "quit")
+    with pytest.raises(SystemExit):
+        console.get_user_input()
+
+    def _mock_normal_mode():
+        return None
+
+    monkeypatch.setattr(console, "_set_normal_mode", _mock_normal_mode)
+    monkeypatch.setitem(
+        console.command_list, "quit", (["q", "quit"], console._set_normal_mode)
+    )
+    assert console.get_user_input() == 0
 
 
 today = datetime.date.today()

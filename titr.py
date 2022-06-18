@@ -169,7 +169,7 @@ class ConsoleSession:
         2.1     (2.1 hrs, default category & account, no comment)
         """
         entry_args = self._parse_new_entry(user_input)
-        if outlook_item and entry_args != 0:
+        if outlook_item:
             if not entry_args:
                 entry_args = dict()
             for index, key in enumerate(["duration", "category", "comment"]):
@@ -219,7 +219,7 @@ class ConsoleSession:
                 # TODO: Improve formatting
                 print(f"{round(duration,2)} hr:\t{category}\t{comment}")
                 ui = self.get_user_input(outlook_item=(duration, category, comment))
-                if ui == 0:
+                if ui == 0:  # pragma: no cover
                     break
 
             self._set_normal_mode()
