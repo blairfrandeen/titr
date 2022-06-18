@@ -1,5 +1,6 @@
 import datetime
 import time
+import sys
 
 import pytest
 import pywintypes
@@ -111,6 +112,7 @@ def test_appt_parameters():
 
 
 # @pytest.mark.skip(reason='Working; connect to outlook time consuming')
+@pytest.mark.skipif("win" not in sys.platform, reason="Skipping windows only tets.")
 def test_get_outlook_items(make_appointment, monkeypatch, test_appt_parameters):
     test_appointments = []
     for appt in test_appt_parameters:
