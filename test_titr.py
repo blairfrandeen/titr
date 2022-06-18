@@ -123,6 +123,22 @@ def test_copy(console, time_entry):
     assert "test entry" in pyperclip.paste()
 
 
+def test_set_outlook_mode(console):
+    console._set_outlook_mode()
+    cmd_list = console.command_list
+    assert "outlook" not in cmd_list.keys()
+    assert "date" not in cmd_list.keys()
+    assert cmd_list["quit"][1] == console._set_normal_mode
+
+    # def test_set_normal_mode(console):
+    console._set_normal_mode()
+    cmd_list = console.command_list
+    assert "outlook" in cmd_list.keys()
+    assert "date" in cmd_list.keys()
+    assert cmd_list["quit"][1] == exit
+    assert cmd_list["null_cmd"][1] is None
+
+
 def test_time_entry():
     te = titr.TimeEntry(2)
     assert te.category == titr.DEFAULT_CATEGORY

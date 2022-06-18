@@ -3,10 +3,12 @@ import time
 import sys
 
 import pytest
-import pywintypes
 from test_titr import console
 import titr
-import win32com.client
+
+if sys.platform.startswith("win32"):
+    import pywintypes
+    import win32com.client
 
 OUTLOOK_ACCOUNT = "blairfrandeen@outlook.com"
 TEST_CALENDAR_NAME = "TITR_TEST_CAL"
