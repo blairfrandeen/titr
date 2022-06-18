@@ -6,9 +6,11 @@ import pytest
 from test_titr import console
 import titr
 
-if sys.platform.startswith("win32"):
-    import pywintypes
-    import win32com.client
+if not sys.platform.startswith("win32"):
+    pytest.skip(reason="windows only tests", allow_module_level=True)
+
+import pywintypes
+import win32com.client
 
 OUTLOOK_ACCOUNT = "blairfrandeen@outlook.com"
 TEST_CALENDAR_NAME = "TITR_TEST_CAL"
