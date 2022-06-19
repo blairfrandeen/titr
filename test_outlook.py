@@ -123,10 +123,12 @@ def test_get_outlook_items(make_appointment, monkeypatch, test_appt_parameters):
         test_appointments.append(make_appointment(*appt))
 
     # Set titr to look in new test folder
-#    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
-#    monkeypatch.setattr("titr.CALENDAR_NAME", TEST_CALENDAR_NAME)
+    #    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
+    #    monkeypatch.setattr("titr.CALENDAR_NAME", TEST_CALENDAR_NAME)
 
-    outlook_items = titr.get_outlook_items(TEST_DAY, TEST_CALENDAR_NAME, OUTLOOK_ACCOUNT)
+    outlook_items = titr.get_outlook_items(
+        TEST_DAY, TEST_CALENDAR_NAME, OUTLOOK_ACCOUNT
+    )
 
     assert sum(1 for _ in outlook_items) == len(test_appt_parameters)
     for index, appt in enumerate(outlook_items):
@@ -137,14 +139,16 @@ def test_get_outlook_items(make_appointment, monkeypatch, test_appt_parameters):
 
     # Test error handling for connecting to outlook
     # Test bad account
+
+
 #    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", "not an account")
-    # with pytest.raises(pywintypes.com_error):
-    #     console.get_outlook_items()
-    # Test bad calendar
+# with pytest.raises(pywintypes.com_error):
+#     console.get_outlook_items()
+# Test bad calendar
 #    monkeypatch.setattr("titr.CALENDAR_NAME", "not a calendar")
 #    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
-    # with pytest.raises(pywintypes.com_error):
-    #     console.get_outlook_items()
+# with pytest.raises(pywintypes.com_error):
+#     console.get_outlook_items()
 
 
 class MockOutlookAppt:

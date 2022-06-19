@@ -12,7 +12,8 @@ import datetime
 import os
 from typing import Optional, Tuple, Dict, List, Callable
 
-CONFIG_FILE = 'default.ini'
+CONFIG_FILE = "default.ini"
+
 
 def create_default_config():
     """Create a default configuration file"""
@@ -20,39 +21,40 @@ def create_default_config():
     if os.path.isfile(CONFIG_FILE):
         raise FileExistsError(f"Config file '{CONFIG_FILE}' already exists!")
     config = configparser.ConfigParser(allow_no_value=True)
-    user_email = input('Enter your email to connect to outlook: ')
-    config['outlook_options'] = {
-        'email': user_email,
-        'calendar_name': 'Calendar',
-        '# skip events with given status codes, comma separated list': None,
-        '# 0 = free': None,
-        '# 1 = tentative': None,
-        '# 2 = busy': None,
-        '# 3 = out of office': None,
-        '# 4 = working elsewhere': None,
-        'skip_event_status': '0, 3',
-        'skip_all_day_events': 'yes',
-        '# use comma separated list of calendar event names to be skipped': None,
-        'skip_event_names': '',
+    user_email = input("Enter your email to connect to outlook: ")
+    config["outlook_options"] = {
+        "email": user_email,
+        "calendar_name": "Calendar",
+        "# skip events with given status codes, comma separated list": None,
+        "# 0 = free": None,
+        "# 1 = tentative": None,
+        "# 2 = busy": None,
+        "# 3 = out of office": None,
+        "# 4 = working elsewhere": None,
+        "skip_event_status": "0, 3",
+        "skip_all_day_events": "yes",
+        "# use comma separated list of calendar event names to be skipped": None,
+        "skip_event_names": "",
     }
-    config['general_options'] = {
-        'max_entry_duration': '9',
-        'default_category': '2',
-        'default_task': 'd',
+    config["general_options"] = {
+        "max_entry_duration": "9",
+        "default_category": "2",
+        "default_task": "d",
     }
-    config['categories'] = {
+    config["categories"] = {
         2: "Deep Work",
         3: "Email",
         4: "Meetings",
     }
-    config['tasks'] = {
+    config["tasks"] = {
         "i": "Incidental",
         "d": "Default Task",
     }
-    with open(CONFIG_FILE, 'w') as config_file_handle:
+    with open(CONFIG_FILE, "w") as config_file_handle:
         config.write(config_file_handle)
 
     return CONFIG_FILE
+
 
 class TimeEntry:
     def __init__(
@@ -122,47 +124,54 @@ class ConsoleSession:
         config.read(config_file)
         self.category_list = {}
         self.task_list = {}
-        for key in config['categories']:
+        for key in config["categories"]:
             try:
                 cat_key = int(key)
             except ValueError as err:
                 print(f"Warning: Skipped category key {key} in {config_file}: {err}")
                 continue
-            self.category_list[cat_key] = config['categories'][key]
-        for key in config['tasks']:
+            self.category_list[cat_key] = config["categories"][key]
+        for key in config["tasks"]:
             if len(key) > 1:
                 print(f"Warning: Skipped task key {key} in {config_file}: len > 1.")
                 continue
             if key.isdigit():
                 print(f"Warning: Skipped task key {key} in {config_file}: Digit")
                 continue
-            self.task_list[key] = config['tasks'][key]
+            self.task_list[key] = config["tasks"][key]
 
-        self.default_task = config['general_options']['default_task']
+        self.default_task = config["general_options"]["default_task"]
         if self.default_task not in self.task_list.keys():
-            print(f"Warning: Default tasks '{self.default_task}' not found in {config_file}.")
+            print(
+                f"Warning: Default tasks '{self.default_task}' not found in {config_file}."
+            )
             self.default_task = list(self.task_list.keys())[0]
 
         # TODO: Error handling for default category as not an int
-        self.default_category = int(config['general_options']['default_category'])
+        self.default_category = int(config["general_options"]["default_category"])
         if self.default_category not in self.category_list.keys():
             self.default_category = int(list(self.category_list.keys())[0])
-            print(f"Warning: Default category '{self.default_category}' not found in {config_file}.")
+            print(
+                f"Warning: Default category '{self.default_category}' not found in {config_file}."
+            )
 
         # TODO: Error handling
-        self.max_duration = float(config['general_options']['max_entry_duration'])
+        self.max_duration = float(config["general_options"]["max_entry_duration"])
 
-        self.outlook_account = config['outlook_options']['email']
-        self.calendar_name = config['outlook_options']['calendar_name']
+        self.outlook_account = config["outlook_options"]["email"]
+        self.calendar_name = config["outlook_options"]["calendar_name"]
         self.skip_event_names = [
-            event.strip() for event in config['outlook_options']['skip_event_names'].split(',')
+            event.strip()
+            for event in config["outlook_options"]["skip_event_names"].split(",")
         ]
         # TODO: Error handling
         self.skip_event_status = [
-            int(status) for status in config['outlook_options']['skip_event_status'].split(',')
+            int(status)
+            for status in config["outlook_options"]["skip_event_status"].split(",")
         ]
-        self.skip_all_day_events = config.getboolean('outlook_options','skip_all_day_events')
-
+        self.skip_all_day_events = config.getboolean(
+            "outlook_options", "skip_all_day_events"
+        )
 
     def get_user_input(self, outlook_item=None, input_str="> ") -> Optional[int]:
         user_input: str = input(input_str)
@@ -249,7 +258,9 @@ class ConsoleSession:
 
     def import_from_outlook(self):
         """Import appointments from outlook."""
-        outlook_items = get_outlook_items(self.date, self.calendar_name, self.outlook_account)
+        outlook_items = get_outlook_items(
+            self.date, self.calendar_name, self.outlook_account
+        )
         if outlook_items is not None:
             # Note: using len(outlook_items) or outlook_items.Count
             # will return an undefined value.
@@ -279,7 +290,9 @@ class ConsoleSession:
 
                 # TODO: Improve formatting
                 event_str = f"{comment}\n{self.category_list[category]} - {round(duration,2)} hr > "
-                ui = self.get_user_input(outlook_item=(duration, category, comment), input_str = event_str)
+                ui = self.get_user_input(
+                    outlook_item=(duration, category, comment), input_str=event_str
+                )
 
                 # TODO: Better handling of quitting outlook mode
                 if ui == 0:  # pragma: no cover
@@ -442,7 +455,9 @@ class ConsoleSession:
             disp_dict(dictionary, name)
 
 
-def get_outlook_items(search_date: datetime.date, calendar_name: str, outlook_account: str):
+def get_outlook_items(
+    search_date: datetime.date, calendar_name: str, outlook_account: str
+):
     """Read calendar items from Outlook."""
     # connect to outlook
     import pywintypes
