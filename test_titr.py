@@ -6,14 +6,14 @@ import pyperclip
 
 
 @pytest.fixture
-def console():
+def console(monkeypatch, titr_default_config):
     cs = titr.ConsoleSession()
     yield cs
 
 
 @pytest.fixture
-def time_entry():
-    te = titr.TimeEntry(2, category=6, comment="test entry")
+def time_entry(console):
+    te = titr.TimeEntry(console, duration=2, comment="test entry")
     yield te
 
 
@@ -29,6 +29,9 @@ def titr_default_config(monkeypatch, tmp_path):
     test_config.set('categories', 'bad_cat_key', 'meow!')
     test_config.set('tasks', 'long_key', 'not allowed!')
     test_config.set('tasks', '8', 'digits not allowed!')
+    test_config.set('general_options', 'default_category', '0')
+    test_config.set('general_options', 'default_task', 'too long')
+    test_config.set('outlook_options', 'skip_event_names', 'Lunch, Meeting')
     with open(test_config_path, 'w') as cfg_fh:
         test_config.write(cfg_fh)
     yield test_config_path
@@ -47,12 +50,18 @@ def test_default_config(titr_default_config):
 def test_load_config(titr_default_config, console, monkeypatch):
     def _mock_create_default():
         return titr_default_config
+    #  monkeypatch.setattr(console, "load_config", lambda: titr_default_config)
     monkeypatch.setattr(titr, 'create_default_config', lambda: titr_default_config)
-    console.load_config()
+    console.load_config(config_file='none')
     assert console.category_list[2] == 'Deep Work'
     assert console.category_list[3] == 'Email'
     assert console.task_list['i'] == 'Incidental'
     assert console.task_list['d'] == 'Default Task'
+    assert console.default_task == 'i'
+    assert console.default_category == 2
+    assert console.skip_all_day_events is True
+    assert console.skip_event_status == [0, 3]
+    assert console.skip_event_names == ['Lunch', 'Meeting']
     test_config = configparser.ConfigParser()
 
 class MockTimeEntry:
@@ -137,7 +146,7 @@ def test_scale_duration(console, capsys):
     for test in scale_tests:
         console.time_entries = []
         for duration in test[0]:
-            console.time_entries.append(titr.TimeEntry(duration))
+            console.time_entries.append(titr.TimeEntry(console, duration))
         console.scale_time_entries(test[1])
         for index, entry in enumerate(console.time_entries):
             print(entry, index)
@@ -178,10 +187,10 @@ def test_set_outlook_mode(console):
     assert cmd_list["null_cmd"][1] is None
 
 
-def test_time_entry():
-    te = titr.TimeEntry(2)
-    assert te.category == titr.DEFAULT_CATEGORY
-    assert te.account == titr.DEFAULT_ACCOUNT
+def test_time_entry(console):
+    te = titr.TimeEntry(console, 2)
+    assert te.category == console.default_category
+    assert te.account == console.default_task
     assert te.comment == ""
 
 

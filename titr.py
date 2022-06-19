@@ -12,42 +12,7 @@ import datetime
 import os
 from typing import Optional, Tuple, Dict, List, Callable
 
-# TODO: Move all defaults to user-editable config file
-# Write function to load configuration
-CONFIG_FILE = 'default.ini'
-MAX_DURATION: float = 9  # maximum duration that can be entered for any task
-DEFAULT_CATEGORY: int = 6
-DEFAULT_ACCOUNT: str = "O"
-
-OUTLOOK_ACCOUNT: str = "blairfrandeen@outlook.com"
-CALENDAR_NAME: str = "Calendar"
-SKIP_ALLDAY_EVENTS: bool = True
-SKIP_EVENT_NAMES: List[str] = ["Lunch"]  # skip outlook events with these titles
-SKIP_EVENT_STATUS: List[int] = [
-    0,
-    3,
-]  # skip outlook events with status free or out of office
-
-CATEGORIES: Dict[int, str] = {
-    2: "Deep Work",
-    3: "Configuration",
-    4: "Discussions",
-    5: "Meetings",
-    6: "Shallow / Misc",
-    7: "Integration Activities",
-    8: "Email",
-    9: "Reflection",
-    10: "Career Development",
-}
-
-ACCOUNTS: Dict[str, str] = {
-    "O": "OS",
-    "G": "Group Lead",
-    "I": "Incidental",
-    "T": "Time Tracker",
-    "N": "Non-Productive Effort",
-}
-
+CONFIG_FILE = 'config.ini'
 
 def create_default_config():
     """Create a default configuration file"""
@@ -65,7 +30,7 @@ def create_default_config():
     config['general_options'] = {
         'max_entry_duration': '9',
         'default_category': '2',
-        'default_account': 'd',
+        'default_task': 'd',
     }
     config['categories'] = {
         2: "Deep Work",
@@ -84,22 +49,23 @@ def create_default_config():
 class TimeEntry:
     def __init__(
         self,
+        session,
         duration: float,
-        category: int = DEFAULT_CATEGORY,
-        account: str = DEFAULT_ACCOUNT,
+        category: int = None,
+        account: str = None,
         comment: str = "",
         date: datetime.date = datetime.date.today(),
     ) -> None:
         self.duration: float = duration
-        self.category: int = category
-        self.account: str = account
+        self.category = session.default_category if category is None else category
+        self.account = session.default_task if account is None else account
         self.comment: str = comment
         self.date: datetime.date = date
 
         self.timestamp: datetime.datetime = datetime.datetime.today()
         self.date_str: str = self.date.isoformat()
-        self.cat_str = CATEGORIES[self.category]
-        self.acct_str = ACCOUNTS[self.account.upper()]
+        self.cat_str = session.category_list[self.category]
+        self.acct_str = session.task_list[self.account.lower()]
 
     def __repr__(self):
         tsv_str: str = f"{self.date_str},{self.duration},{self.account},{self.category},{self.comment}"
@@ -136,8 +102,10 @@ class ConsoleSession:
         }
         self.date = datetime.date.today()
         exit.__doc__ = "Quit"
+        self.load_config()
 
     def load_config(self, config_file=CONFIG_FILE):
+        """Load and validate configuration options."""
         # look for a config file in the working directory
         # if it doesn't exist, create it with some default options
         if not os.path.isfile(config_file):
@@ -161,6 +129,31 @@ class ConsoleSession:
                 print(f"Warning: Skipped task key {key} in {config_file}: Digit")
                 continue
             self.task_list[key] = config['tasks'][key]
+
+        self.default_task = config['general_options']['default_task']
+        if self.default_task not in self.task_list.keys():
+            print(f"Warning: Default tasks '{self.default_task}' not found in {config_file}.")
+            self.default_task = list(self.task_list.keys())[0]
+
+        # TODO: Error handling for default category as not an int
+        self.default_category = int(config['general_options']['default_category'])
+        if self.default_category not in self.category_list.keys():
+            self.default_category = int(list(self.category_list.keys())[0])
+            print(f"Warning: Default category '{self.default_category}' not found in {config_file}.")
+
+        # TODO: Error handling
+        self.max_duration = float(config['general_options']['max_entry_duration'])
+
+        self.outlook_account = config['outlook_options']['email']
+        self.calendar_name = config['outlook_options']['calendar_name']
+        self.skip_event_names = [
+            event.strip() for event in config['outlook_options']['skip_event_names'].split(',')
+        ]
+        # TODO: Error handling
+        self.skip_event_status = [
+            int(status) for status in config['outlook_options']['skip_event_status'].split(',')
+        ]
+        self.skip_all_day_events = config.getboolean('outlook_options','skip_all_day_events')
 
 
     def get_user_input(self, outlook_item=None, input_str="> ") -> Optional[int]:
@@ -237,7 +230,7 @@ class ConsoleSession:
                 if key not in entry_args.keys():
                     entry_args[key] = outlook_item[index]
         if entry_args and entry_args["duration"] != 0:
-            self.time_entries.append(TimeEntry(**entry_args))
+            self.time_entries.append(TimeEntry(self, **entry_args))
             print(self.time_entries[-1])
 
     def _is_alias(self, alias, command):
@@ -248,7 +241,7 @@ class ConsoleSession:
 
     def import_from_outlook(self):
         """Import appointments from outlook."""
-        outlook_items = get_outlook_items(self.date)
+        outlook_items = get_outlook_items(self.date, self.calendar_name, self.outlook_account)
         if outlook_items is not None:
             # Note: using len(outlook_items) or outlook_items.Count
             # will return an undefined value.
@@ -259,26 +252,25 @@ class ConsoleSession:
             print(f"Found total of {num_items} events for {self.date}:")
             self._set_outlook_mode()
             for item in outlook_items:
-                if item.AllDayEvent is True and SKIP_ALLDAY_EVENTS is True:
+                if item.AllDayEvent is True and self.skip_all_day_events is True:
                     continue
-                if item.Subject in SKIP_EVENT_NAMES:
+                if item.Subject in self.skip_event_names:
                     continue
-                if item.BusyStatus in SKIP_EVENT_STATUS:
+                if item.BusyStatus in self.skip_event_status:
                     continue
                 comment = item.Subject
                 duration = item.Duration / 60  # convert minutes to hours
 
                 # TODO: Accept multiple categories
                 appt_category = item.Categories.split(",")[0].strip()
-                category = DEFAULT_CATEGORY
-                for key, cat in CATEGORIES.items():
+                category = self.default_category
+                for key, cat in self.categories.items():
                     if cat == appt_category:
                         category = key
                         break
 
                 # TODO: Improve formatting
-                event_str = f"{comment}\n{CATEGORIES[category]} - {round(duration,2)} hr > "
-                #  print(f"{round(duration,2)} hr:\t{category}\t{comment}")
+                event_str = f"{comment}\n{self.categories[category]} - {round(duration,2)} hr > "
                 ui = self.get_user_input(outlook_item=(duration, category, comment), input_str = event_str)
 
                 # TODO: Better handling of quitting outlook mode
@@ -329,7 +321,7 @@ class ConsoleSession:
             return None
         user_input = user_input.split(" ")
         duration = float(user_input[0])
-        if duration > MAX_DURATION:
+        if duration > self.max_duration:
             raise ValueError("You're working too much.")
         if duration < 0:
             raise ValueError("You can't unwork.")
@@ -342,8 +334,8 @@ class ConsoleSession:
             # All arguments including comment
             case (str(cat_key), str(account), *comment) if (
                 is_float(cat_key)
-                and int(cat_key) in CATEGORIES.keys()
-                and account.upper() in ACCOUNTS.keys()
+                and int(cat_key) in self.category_list.keys()
+                and account.lower() in self.task_list.keys()
             ):
                 new_entry_arguments["category"] = int(cat_key)
                 new_entry_arguments["account"] = account
@@ -351,21 +343,21 @@ class ConsoleSession:
                     new_entry_arguments["comment"] = " ".join(comment).strip()
             # Category argument, no account argument
             case (str(cat_key), *comment) if (
-                is_float(cat_key) and int(cat_key) in CATEGORIES.keys()
+                is_float(cat_key) and int(cat_key) in self.category_list.keys()
             ):
                 new_entry_arguments["category"] = int(cat_key)
                 if comment:
                     new_entry_arguments["comment"] = " ".join(comment).strip()
             # Account argument, no category argument
             case (str(account), *comment) if (
-                not is_float(account) and account.upper() in ACCOUNTS.keys()
+                not is_float(account) and account.lower() in self.task_list.keys()
             ):
                 new_entry_arguments["account"] = account
                 if comment:
                     new_entry_arguments["comment"] = " ".join(comment).strip()
             # Comment only
             case (str(cat_key), str(account), *comment) if (
-                not is_float(cat_key) and account.upper() not in ACCOUNTS.keys()
+                not is_float(cat_key) and account.lower() not in self.task_list.keys()
             ):
                 comment = (cat_key + " " + account + " " + " ".join(comment)).strip()
                 if comment:
@@ -436,13 +428,13 @@ class ConsoleSession:
     def list_categories_and_accounts(self):
         """Display available category & account codes."""
         for dictionary, name in [
-            (ACCOUNTS, "ACCOUNTS"),
-            (CATEGORIES, "CATEGORIES"),
+            (self.task_list, "TASKS"),
+            (self.category_list, "CATEGORIES"),
         ]:  # pragma: no cover
             disp_dict(dictionary, name)
 
 
-def get_outlook_items(search_date: datetime.date):
+def get_outlook_items(search_date: datetime.date, calendar_name: str, outlook_account: str):
     """Read calendar items from Outlook."""
     # connect to outlook
     import pywintypes
@@ -456,14 +448,14 @@ def get_outlook_items(search_date: datetime.date):
         print(f"Error connecting to Outlook Namespace: {err}")
         return None
     try:
-        acct = namespace.Folders.Item(OUTLOOK_ACCOUNT)
+        acct = namespace.Folders.Item(outlook_account)
     except pywintypes.com_error as err:
-        print(f'Error connecting to account "{OUTLOOK_ACCOUNT}": {err}')
+        print(f'Error connecting to account "{outlook_account}": {err}')
         return None
     try:
-        calendar = acct.Folders(CALENDAR_NAME)
+        calendar = acct.Folders(calendar_name)
     except pywintypes.com_error as err:
-        print(f'Calendar with name "{CALENDAR_NAME}" not found: {err}')
+        print(f'Calendar with name "{calendar_name}" not found: {err}')
         return None
 
     # Time format string requried by MAPI to filter by date
