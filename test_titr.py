@@ -1,3 +1,4 @@
+import configparser
 import datetime
 import pytest
 import titr
@@ -15,6 +16,44 @@ def time_entry():
     te = titr.TimeEntry(2, category=6, comment="test entry")
     yield te
 
+
+@pytest.fixture
+def titr_default_config(monkeypatch, tmp_path):
+    test_config_path = tmp_path / 'test.ini'
+    monkeypatch.setattr(titr, "CONFIG_FILE", test_config_path)
+    titr.create_default_config()
+    test_config = configparser.ConfigParser()
+
+    # Add some illegal entries
+    test_config.read(test_config_path)
+    test_config.set('categories', 'bad_cat_key', 'meow!')
+    test_config.set('tasks', 'long_key', 'not allowed!')
+    test_config.set('tasks', '8', 'digits not allowed!')
+    with open(test_config_path, 'w') as cfg_fh:
+        test_config.write(cfg_fh)
+    yield test_config_path
+
+def test_default_config(titr_default_config):
+    test_config = configparser.ConfigParser()
+    test_config.read(titr_default_config)
+    for section in ['outlook_options', 'general_options', 'categories', 'tasks']:
+        assert section in test_config.sections()
+
+    # expect failure if config already exists
+    with pytest.raises(FileExistsError):
+        titr.create_default_config()
+
+
+def test_load_config(titr_default_config, console, monkeypatch):
+    def _mock_create_default():
+        return titr_default_config
+    monkeypatch.setattr(titr, 'create_default_config', lambda: titr_default_config)
+    console.load_config()
+    assert console.category_list[2] == 'Deep Work'
+    assert console.category_list[3] == 'Email'
+    assert console.task_list['i'] == 'Incidental'
+    assert console.task_list['d'] == 'Default Task'
+    test_config = configparser.ConfigParser()
 
 class MockTimeEntry:
     def __init__(

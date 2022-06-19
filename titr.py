@@ -7,11 +7,14 @@ A time tracker CLI.
 https://github.com/blairfrandeen/titr
 """
 
+import configparser
 import datetime
+import os
 from typing import Optional, Tuple, Dict, List, Callable
 
 # TODO: Move all defaults to user-editable config file
 # Write function to load configuration
+CONFIG_FILE = 'default.ini'
 MAX_DURATION: float = 9  # maximum duration that can be entered for any task
 DEFAULT_CATEGORY: int = 6
 DEFAULT_ACCOUNT: str = "O"
@@ -45,6 +48,38 @@ ACCOUNTS: Dict[str, str] = {
     "N": "Non-Productive Effort",
 }
 
+
+def create_default_config():
+    """Create a default configuration file"""
+    # Ensure we don't accidentally overwrite config
+    if os.path.isfile(CONFIG_FILE):
+        raise FileExistsError(f"Config file '{CONFIG_FILE}' already exists!")
+    config = configparser.ConfigParser()
+    config['outlook_options'] = {
+        'email': 'yourname@example.com',
+        'calendar_name': 'Calendar',
+        'skip_event_status': '0, 3',
+        'skip_all_day_events': 'yes',
+        'skip_event_names': '',
+    }
+    config['general_options'] = {
+        'max_entry_duration': '9',
+        'default_category': '2',
+        'default_account': 'd',
+    }
+    config['categories'] = {
+        2: "Deep Work",
+        3: "Email",
+        4: "Meetings",
+    }
+    config['tasks'] = {
+        "i": "Incidental",
+        "d": "Default Task",
+    }
+    with open(CONFIG_FILE, 'w') as config_file_handle:
+        config.write(config_file_handle)
+
+    return CONFIG_FILE
 
 class TimeEntry:
     def __init__(
@@ -101,6 +136,32 @@ class ConsoleSession:
         }
         self.date = datetime.date.today()
         exit.__doc__ = "Quit"
+
+    def load_config(self, config_file=CONFIG_FILE):
+        # look for a config file in the working directory
+        # if it doesn't exist, create it with some default options
+        if not os.path.isfile(config_file):
+            config_file = create_default_config()
+        config = configparser.ConfigParser()
+        config.read(config_file)
+        self.category_list = {}
+        self.task_list = {}
+        for key in config['categories']:
+            try:
+                cat_key = int(key)
+            except ValueError as err:
+                print(f"Warning: Skipped category key {key} in {config_file}: {err}")
+                continue
+            self.category_list[cat_key] = config['categories'][key]
+        for key in config['tasks']:
+            if len(key) > 1:
+                print(f"Warning: Skipped task key {key} in {config_file}: len > 1.")
+                continue
+            if key.isdigit():
+                print(f"Warning: Skipped task key {key} in {config_file}: Digit")
+                continue
+            self.task_list[key] = config['tasks'][key]
+
 
     def get_user_input(self, outlook_item=None, input_str="> ") -> Optional[int]:
         user_input: str = input(input_str)
