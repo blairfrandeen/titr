@@ -264,13 +264,13 @@ class ConsoleSession:
                 # TODO: Accept multiple categories
                 appt_category = item.Categories.split(",")[0].strip()
                 category = self.default_category
-                for key, cat in self.categories.items():
+                for key, cat in self.category_list.items():
                     if cat == appt_category:
                         category = key
                         break
 
                 # TODO: Improve formatting
-                event_str = f"{comment}\n{self.categories[category]} - {round(duration,2)} hr > "
+                event_str = f"{comment}\n{self.category_list[category]} - {round(duration,2)} hr > "
                 ui = self.get_user_input(outlook_item=(duration, category, comment), input_str = event_str)
 
                 # TODO: Better handling of quitting outlook mode

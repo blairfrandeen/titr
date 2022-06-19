@@ -3,7 +3,7 @@ import time
 import sys
 
 import pytest
-from test_titr import console
+from test_titr import console, titr_default_config
 import titr
 
 if not sys.platform.startswith("win32"):
@@ -123,10 +123,10 @@ def test_get_outlook_items(make_appointment, monkeypatch, test_appt_parameters):
         test_appointments.append(make_appointment(*appt))
 
     # Set titr to look in new test folder
-    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
-    monkeypatch.setattr("titr.CALENDAR_NAME", TEST_CALENDAR_NAME)
+#    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
+#    monkeypatch.setattr("titr.CALENDAR_NAME", TEST_CALENDAR_NAME)
 
-    outlook_items = titr.get_outlook_items(TEST_DAY)
+    outlook_items = titr.get_outlook_items(TEST_DAY, TEST_CALENDAR_NAME, OUTLOOK_ACCOUNT)
 
     assert sum(1 for _ in outlook_items) == len(test_appt_parameters)
     for index, appt in enumerate(outlook_items):
@@ -137,12 +137,12 @@ def test_get_outlook_items(make_appointment, monkeypatch, test_appt_parameters):
 
     # Test error handling for connecting to outlook
     # Test bad account
-    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", "not an account")
+#    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", "not an account")
     # with pytest.raises(pywintypes.com_error):
     #     console.get_outlook_items()
     # Test bad calendar
-    monkeypatch.setattr("titr.CALENDAR_NAME", "not a calendar")
-    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
+#    monkeypatch.setattr("titr.CALENDAR_NAME", "not a calendar")
+#    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
     # with pytest.raises(pywintypes.com_error):
     #     console.get_outlook_items()
 
@@ -169,7 +169,7 @@ def mock_appointments(test_appt_parameters):
 
 
 def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
-    def _mock_get_outlook_items(_):
+    def _mock_get_outlook_items(*_):
         return []
 
     def _mock_set_mode():
@@ -178,7 +178,7 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
     monkeypatch.setattr(titr, "get_outlook_items", _mock_get_outlook_items)
     monkeypatch.setattr(console, "_set_outlook_mode", _mock_set_mode)
     monkeypatch.setattr(console, "_set_normal_mode", _mock_set_mode)
-    monkeypatch.setattr(titr, "SKIP_EVENT_NAMES", ["Filtered Event"])
+    monkeypatch.setattr(console, "skip_event_names", ["Filtered Event"])
 
     def _mock_user_input(**kwargs):
         print("User input mocked.")
@@ -187,7 +187,7 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
     with pytest.raises(KeyError):
         console.import_from_outlook()
 
-    monkeypatch.setattr(titr, "get_outlook_items", lambda _: mock_appointments)
+    monkeypatch.setattr(titr, "get_outlook_items", lambda *_: mock_appointments)
     console.import_from_outlook()
     captured = capsys.readouterr()
     for entry in console.time_entries:
