@@ -5,3 +5,12 @@ pythonpath = "."
 [build-system]
 requires = ["setuptools>=42"]
 build-backend = "setuptools.build_meta"
+
+[project]
+dependencies = [
+    "pyperclip",
+    "pywin32; platform_system=='Windows'",
+]
+
+[project.scripts]
+titr = "titr:titr:main"
