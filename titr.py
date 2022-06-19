@@ -52,33 +52,33 @@ class TimeEntry:
         session,
         duration: float,
         category: int = None,
-        account: str = None,
+        task: str = None,
         comment: str = "",
         date: datetime.date = datetime.date.today(),
     ) -> None:
         self.duration: float = duration
         self.category = session.default_category if category is None else category
-        self.account = session.default_task if account is None else account
+        self.task = session.default_task if task is None else task
         self.comment: str = comment
         self.date: datetime.date = date
 
         self.timestamp: datetime.datetime = datetime.datetime.today()
         self.date_str: str = self.date.isoformat()
         self.cat_str = session.category_list[self.category]
-        self.acct_str = session.task_list[self.account.lower()]
+        self.tsk_str = session.task_list[self.task.lower()]
 
     def __repr__(self):
-        tsv_str: str = f"{self.date_str},{self.duration},{self.account},{self.category},{self.comment}"
+        tsv_str: str = f"{self.date_str},{self.duration},{self.task},{self.category},{self.comment}"
         return tsv_str
 
     @property
     def tsv_str(self):  # pragma: no cover
-        tsv_str: str = f"{self.date_str}\t{self.duration}\t{self.acct_str}\t{self.cat_str}\t{self.comment}\n"
+        tsv_str: str = f"{self.date_str}\t{self.duration}\t{self.tsk_str}\t{self.cat_str}\t{self.comment}\n"
         return tsv_str
 
     def __str__(self):  # pragma: no cover
         # TODO: Improve formatting
-        self_str: str = f"{self.date_str}\t{round(self.duration,2)}\t\t{self.acct_str}\t\t{self.cat_str}\t\t{self.comment}"
+        self_str: str = f"{self.date_str}\t{round(self.duration,2)}\t\t{self.tsk_str}\t\t{self.cat_str}\t\t{self.comment}"
         return self_str
 
 
@@ -92,7 +92,7 @@ class ConsoleSession:
             "commit": (["c", "commit"], None),  # not implemented
             "date": (["d", "date"], self.set_date),
             "help": (["h", "help"], self.help_msg),
-            "list": (["ls", "list"], self.list_categories_and_accounts),
+            "list": (["ls", "list"], self.list_categories_and_tasks),
             "outlook": (["o", "outlook"], self.import_from_outlook),
             "null_cmd": ([""], None),
             "preview": (["p", "preview"], self.preview_output),
@@ -176,7 +176,7 @@ class ConsoleSession:
                 new_date = parse_date(datestr=date_input)
                 self.set_date(new_date)
             case [alias, *_] if self._is_alias(alias, "list"):
-                self.list_categories_and_accounts()
+                self.list_categories_and_tasks()
             case [alias] if self._is_alias(alias, "outlook"):
                 self.import_from_outlook()
             case [alias, *_] if self._is_alias(alias, "preview"):
@@ -207,20 +207,20 @@ class ConsoleSession:
     def _add_entry(self, user_input, outlook_item=None):
         """Add a new entry to the time log.
 
-        Format is <duration> [<category> <account> <comment>]
+        Format is <duration> [<category> <task> <comment>]
         There is no need to type 'add'
         Duration is required and must be able to be converted to float
         Type 'ls accounts' and 'ls categories' for available accounts & categories
-        Category must be an integer; account must be a single character
-        Any text after the accounts is considered a comment.
+        Category must be an integer; task must be a single character
+        Any text after the task is considered a comment.
         All arguments other than duration are optional.
 
         Some examples:
-        1 2 i this is one hour in category 2 in account 'i'
-        1 this is one hour on default account & category
-        .5 i this is one hour in account 'i'
+        1 2 i this is one hour in category 2 in task 'i'
+        1 this is one hour on default task & category
+        .5 i this is one hour in task 'i'
         1 2 this is one hour in category 2
-        2.1     (2.1 hrs, default category & account, no comment)
+        2.1     (2.1 hrs, default category & task, no comment)
         """
         entry_args = self._parse_new_entry(user_input)
         if outlook_item:
@@ -332,34 +332,34 @@ class ConsoleSession:
             case ([] | "" | None):
                 pass
             # All arguments including comment
-            case (str(cat_key), str(account), *comment) if (
+            case (str(cat_key), str(task), *comment) if (
                 is_float(cat_key)
                 and int(cat_key) in self.category_list.keys()
-                and account.lower() in self.task_list.keys()
+                and task.lower() in self.task_list.keys()
             ):
                 new_entry_arguments["category"] = int(cat_key)
-                new_entry_arguments["account"] = account
+                new_entry_arguments["task"] = task
                 if comment:
                     new_entry_arguments["comment"] = " ".join(comment).strip()
-            # Category argument, no account argument
+            # Category argument, no task argument
             case (str(cat_key), *comment) if (
                 is_float(cat_key) and int(cat_key) in self.category_list.keys()
             ):
                 new_entry_arguments["category"] = int(cat_key)
                 if comment:
                     new_entry_arguments["comment"] = " ".join(comment).strip()
-            # Account argument, no category argument
-            case (str(account), *comment) if (
-                not is_float(account) and account.lower() in self.task_list.keys()
+            # task argument, no category argument
+            case (str(task), *comment) if (
+                not is_float(task) and task.lower() in self.task_list.keys()
             ):
-                new_entry_arguments["account"] = account
+                new_entry_arguments["task"] = task
                 if comment:
                     new_entry_arguments["comment"] = " ".join(comment).strip()
             # Comment only
-            case (str(cat_key), str(account), *comment) if (
-                not is_float(cat_key) and account.lower() not in self.task_list.keys()
+            case (str(cat_key), str(task), *comment) if (
+                not is_float(cat_key) and task.lower() not in self.task_list.keys()
             ):
-                comment = (cat_key + " " + account + " " + " ".join(comment)).strip()
+                comment = (cat_key + " " + task + " " + " ".join(comment)).strip()
                 if comment:
                     new_entry_arguments["comment"] = comment
             case _:
@@ -396,7 +396,7 @@ class ConsoleSession:
 
     def preview_output(self) -> None:
         """Preview output."""
-        print("DATE\t\tDURATION\tACCOUNT\t\tCATEGORY\t\tCOMMENT")
+        print("DATE\t\tDURATION\tTASK\t\tCATEGORY\t\tCOMMENT")
         for entry in self.time_entries:
             print(entry)
         print(f"TOTAL\t\t{self.total_duration}")
@@ -425,7 +425,7 @@ class ConsoleSession:
     def total_duration(self):
         return round(sum([entry.duration for entry in self.time_entries]), 2)
 
-    def list_categories_and_accounts(self):
+    def list_categories_and_tasks(self):
         """Display available category & account codes."""
         for dictionary, name in [
             (self.task_list, "TASKS"),

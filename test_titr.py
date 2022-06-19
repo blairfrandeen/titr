@@ -66,17 +66,17 @@ def test_load_config(titr_default_config, console, monkeypatch):
 
 class MockTimeEntry:
     def __init__(
-        self, duration, account="N", category=5, comment="", date=datetime.date.today()
+        self, duration, task="N", category=5, comment="", date=datetime.date.today()
     ):
         self.duration = duration
         self.category = category
-        self.account = account
+        self.task = task
         self.comment = comment
         self.date = date
 
     def __str__(self):
         self_str: str = (
-            f"{self.duration}\t{self.category}\t{self.account}\t{self.comment}"
+            f"{self.duration}\t{self.category}\t{self.task}\t{self.comment}"
         )
         return self_str
 
@@ -190,7 +190,7 @@ def test_set_outlook_mode(console):
 def test_time_entry(console):
     te = titr.TimeEntry(console, 2)
     assert te.category == console.default_category
-    assert te.account == console.default_task
+    assert te.task == console.default_task
     assert te.comment == ""
 
 
@@ -228,7 +228,7 @@ valid_time_entries = [
         {
             "duration": 1,
             "category": 2,
-            "account": "i",
+            "task": "i",
         },
     ),
     (
@@ -236,7 +236,7 @@ valid_time_entries = [
         {
             "duration": 7,
             "category": 2,
-            "account": "i",
+            "task": "i",
             "comment": "test string",
         },
     ),
@@ -245,7 +245,7 @@ valid_time_entries = [
         {
             "duration": 7,
             "category": 2,
-            "account": "i",
+            "task": "i",
             "comment": "TEST STRING",
         },
     ),
@@ -253,7 +253,7 @@ valid_time_entries = [
         '.87 i a really "fun" meeting?',
         {
             "duration": 0.87,
-            "account": "i",
+            "task": "i",
             "comment": 'a really "fun" meeting?',
         },
     ),
@@ -274,7 +274,7 @@ valid_time_entries = [
     ),
     (
         "0 2 i no entry",
-        {"duration": 0, "comment": "no entry", "category": 2, "account": "i"},
+        {"duration": 0, "comment": "no entry", "category": 2, "task": "i"},
     ),
     ("0", {"duration": 0}),
     ("", None),
@@ -374,7 +374,7 @@ def test_get_user_input(console, monkeypatch, capsys):
         "set_date": ["d", "date", "D", "d -1", "date 2013-08-05"],
         "import_from_outlook": ["O", "outlook"],
         "preview_output": ["p", "preview"],
-        "list_categories_and_accounts": ["ls", "list"],
+        "list_categories_and_tasks": ["ls", "list"],
         "undo_last": ["z", "undo"],
         "scale_time_entries": ["s 9", "scale 10"],
         "help_msg": ["h", "help", "help scale", "help date", "add"],
