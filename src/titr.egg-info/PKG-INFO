@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: titr
+Version: 0.0.1
+Summary: A CLI for time tracking
+Home-page: https://github.com/blairfrandeen/titr
+Author: Blair Frandeen
+Author-email: blairfrandeen@gmail.com
+Project-URL: Bug Tracker, https://github.com/blairfrandeen/titr/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE

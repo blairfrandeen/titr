@@ -7,4 +7,6 @@ exclude_lines =
     def __repr__
 
 [run]
-omit = /usr/lib/python3*
+omit = 
+    /usr/lib/python3/*
+    tests/*
