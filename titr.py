@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 """
 titr - pronounced 'titter'
@@ -12,19 +12,27 @@ import datetime
 import os
 from typing import Optional, Tuple, Dict, List, Callable
 
-CONFIG_FILE = 'config.ini'
+CONFIG_FILE = 'default.ini'
 
 def create_default_config():
     """Create a default configuration file"""
     # Ensure we don't accidentally overwrite config
     if os.path.isfile(CONFIG_FILE):
         raise FileExistsError(f"Config file '{CONFIG_FILE}' already exists!")
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(allow_no_value=True)
+    user_email = input('Enter your email to connect to outlook: ')
     config['outlook_options'] = {
-        'email': 'yourname@example.com',
+        'email': user_email,
         'calendar_name': 'Calendar',
+        '# skip events with given status codes, comma separated list': None,
+        '# 0 = free': None,
+        '# 1 = tentative': None,
+        '# 2 = busy': None,
+        '# 3 = out of office': None,
+        '# 4 = working elsewhere': None,
         'skip_event_status': '0, 3',
         'skip_all_day_events': 'yes',
+        '# use comma separated list of calendar event names to be skipped': None,
         'skip_event_names': '',
     }
     config['general_options'] = {

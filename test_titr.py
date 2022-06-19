@@ -21,6 +21,7 @@ def time_entry(console):
 def titr_default_config(monkeypatch, tmp_path):
     test_config_path = tmp_path / 'test.ini'
     monkeypatch.setattr(titr, "CONFIG_FILE", test_config_path)
+    monkeypatch.setattr('builtins.input', lambda _: 'yourname@example.com')
     titr.create_default_config()
     test_config = configparser.ConfigParser()
 
