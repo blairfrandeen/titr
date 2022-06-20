@@ -222,8 +222,9 @@ class ConsoleSession:
                 self.help_msg()
             case [alias] if self._is_alias(alias, "null_cmd"):  # pragma: no cover
                 self._add_entry(user_input, outlook_item)
+                return 1
             case _:
-                raise ValueError(f'Invalid input: "{" ".join(user_input)}"')
+                raise ValueError(f'Invalid input: "{user_input}"')
 
     def _add_entry(self, user_input, outlook_item=None):
         """Add a new entry to the time log.
@@ -296,9 +297,15 @@ class ConsoleSession:
                 event_str = f"{comment}\n{self.category_list[category]} - {round(duration,2)} hr > "
                 ui = None
                 while ui != 1:
-                    ui = self.get_user_input(
-                        outlook_item=(duration, category, comment), input_str=event_str
-                    )
+                    try:
+                        ui = self.get_user_input(
+                            outlook_item=(duration, category, comment), input_str=event_str
+                        )
+                    except ValueError as err:
+                        print(err)
+
+                    if ui == 0:
+                        break
 
                 # TODO: Better handling of quitting outlook mode
                 if ui == 0:  # pragma: no cover

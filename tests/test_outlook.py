@@ -184,14 +184,16 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
     monkeypatch.setattr(console, "_set_normal_mode", _mock_set_mode)
     monkeypatch.setattr(console, "skip_event_names", ["Filtered Event"])
 
+    return_vals = ("1", None, "0")
     def _mock_user_input(**kwargs):
-        print("User input mocked.")
+        return 0
 
     monkeypatch.setattr(console, "get_user_input", _mock_user_input)
     with pytest.raises(KeyError):
         console.import_from_outlook()
 
     monkeypatch.setattr(titr, "get_outlook_items", lambda *_: mock_appointments)
+    monkeypatch.setattr("builtins.input", lambda _: "")
     console.import_from_outlook()
     captured = capsys.readouterr()
     for entry in console.time_entries:
