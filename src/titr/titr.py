@@ -12,8 +12,8 @@ import datetime
 import os
 from typing import Optional, Tuple, Dict, List, Callable
 
-CONFIG_FILE = "default.ini"
 
+CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 
 def create_default_config():
     """Create a default configuration file"""
@@ -50,6 +50,9 @@ def create_default_config():
         "i": "Incidental",
         "d": "Default Task",
     }
+    config_path = os.path.dirname(CONFIG_FILE)
+    if not os.path.exists(config_path):
+        os.mkdir(config_path)
     with open(CONFIG_FILE, "w") as config_file_handle:
         config.write(config_file_handle)
 
