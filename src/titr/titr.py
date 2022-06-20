@@ -51,7 +51,7 @@ def create_default_config():
         "d": "Default Task",
     }
     config_path = os.path.dirname(CONFIG_FILE)
-    if not os.path.exists(config_path):
+    if not os.path.exists(config_path):  # pragma: no cover
         os.mkdir(config_path)
     with open(CONFIG_FILE, "w") as config_file_handle:
         config.write(config_file_handle)
@@ -98,7 +98,7 @@ class TimeEntry:
 class ConsoleSession:
     def __init__(self) -> None:
         self.time_entries: List[TimeEntry] = []
-        self.command_list: Dict[str, Tuple[List[str], Callable]] = {
+        self.command_list: Dict[str, Tuple[List[str], Optional[Callable]]] = {
             "add": (["add"], self._add_entry),
             "clear": (["clear"], self.clear),
             "clip": (["clip"], self.copy_output),
@@ -176,7 +176,7 @@ class ConsoleSession:
             "outlook_options", "skip_all_day_events"
         )
 
-    def get_user_input(self, outlook_item=None, input_str="> ") -> Optional[int]:
+    def get_user_input(self, outlook_item=None, input_str: str = "> ") -> Optional[int]:
         user_input: str = input(input_str)
         match user_input.split(" "):
             case [str(duration), *entry_args] if is_float(duration):
@@ -225,6 +225,8 @@ class ConsoleSession:
                 return 1
             case _:
                 raise ValueError(f'Invalid input: "{user_input}"')
+
+        return None
 
     def _add_entry(self, user_input, outlook_item=None):
         """Add a new entry to the time log.
@@ -299,7 +301,8 @@ class ConsoleSession:
                 while ui != 1:
                     try:
                         ui = self.get_user_input(
-                            outlook_item=(duration, category, comment), input_str=event_str
+                            outlook_item=(duration, category, comment),
+                            input_str=event_str,
                         )
                     except ValueError as err:
                         print(err)
@@ -346,21 +349,21 @@ class ConsoleSession:
         self.date = new_date
         print(f"Date set to {new_date.isoformat()}")
 
-    def _parse_new_entry(self, user_input) -> Optional[dict]:
+    def _parse_new_entry(self, raw_input: str) -> Optional[dict]:
         """Parse a user input into a time entry.
 
         Returns None for blank entry
         Else returns a dict to be passed to a new TimeEntry"""
         if user_input == "":
             return None
-        user_input = user_input.split(" ")
+        user_input: List[str] = raw_input.split(" ")
         duration = float(user_input[0])
         if duration > self.max_duration:
             raise ValueError("You're working too much.")
         if duration < 0:
             raise ValueError("You can't unwork.")
-        new_entry_arguments = {"duration": duration}
-        entry_args = user_input[1:]
+        new_entry_arguments: dict = {"duration": duration}
+        entry_args: List[str] = user_input[1:]
         match entry_args:
             # No arguments, add entry with all defaults
             case ([] | "" | None):
@@ -393,7 +396,7 @@ class ConsoleSession:
             case (str(cat_key), str(task), *comment) if (
                 not is_float(cat_key) and task.lower() not in self.task_list.keys()
             ):
-                comment = (cat_key + " " + task + " " + " ".join(comment)).strip()
+                comment: str = (cat_key + " " + task + " " + " ".join(comment)).strip()
                 if comment:
                     new_entry_arguments["comment"] = comment
             case _:
@@ -534,7 +537,7 @@ def is_float(item: str) -> bool:
         return False
 
 
-def parse_date(datestr: str) -> datetime.datetime:
+def parse_date(datestr: str) -> datetime.date:
     try:
         date_delta = int(datestr)
     except ValueError:
