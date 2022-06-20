@@ -275,6 +275,13 @@ valid_time_entries = [
         },
     ),
     (
+        "1 onewordcomment",
+        {
+            "duration": 1,
+            "comment": "onewordcomment",
+        },
+    ),
+    (
         "0 2 i no entry",
         {"duration": 0, "comment": "no entry", "category": 2, "task": "i"},
     ),
@@ -294,7 +301,7 @@ def test_parse_new_entry(console, user_input, output_dict):
         "99 3 i working too much",
         "hi there!",
         "-1 2 i",
-        "9 34 q wtf",
+        "e9 34 q wtf",
     ],
 )
 def test_parse_invalid_entries(console, invalid_entry):

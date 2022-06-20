@@ -85,16 +85,12 @@ class TimeEntry:
 
     @property
     def tsv_str(self):  # pragma: no cover
-        tsv_str: str = "".join(
+        tsv_str: str = "\t".join(
             [
                 self.date_str,
-                "\t",
                 str(self.duration),
-                "\t",
                 self.tsk_str,
-                "\t",
                 self.cat_str,
-                "\t",
                 self.comment,
             ]
         )
@@ -102,16 +98,15 @@ class TimeEntry:
 
     def __str__(self):  # pragma: no cover
         # TODO: Improve formatting
-        self_str: str = "".join(
+        self_str: str = "\t".join(
             [
                 self.date_str,
-                "\t",
                 str(round(self.duration, 2)),
-                "\t\t",
+                "\t",
                 self.tsk_str,
-                "\t\t",
+                "\t",
                 self.cat_str,
-                "\t\t",
+                "\t",
                 self.comment,
             ]
         )
@@ -432,8 +427,9 @@ class ConsoleSession:
                 ).strip()
                 if new_comment:
                     new_entry_arguments["comment"] = new_comment
-            case _:
-                raise ValueError("Invalid arguments for time entry")
+            case comment:
+                new_entry_arguments["comment"] = " ".join(comment).strip()
+                #  raise ValueError("Invalid arguments for time entry")
 
         return new_entry_arguments
 
