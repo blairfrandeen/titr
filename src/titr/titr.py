@@ -12,8 +12,8 @@ import datetime
 import os
 from typing import Optional, Tuple, Dict, List, Callable
 
-
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
+
 
 def create_default_config():
     """Create a default configuration file"""
@@ -181,6 +181,7 @@ class ConsoleSession:
         match user_input.split(" "):
             case [str(duration), *entry_args] if is_float(duration):
                 self._add_entry(user_input, outlook_item)
+                return 1
             case [alias, *_] if self._is_alias(alias, "add"):
                 # self.command_list['help'][1](command='add')
                 self.help_msg(command="add")
@@ -293,9 +294,11 @@ class ConsoleSession:
 
                 # TODO: Improve formatting
                 event_str = f"{comment}\n{self.category_list[category]} - {round(duration,2)} hr > "
-                ui = self.get_user_input(
-                    outlook_item=(duration, category, comment), input_str=event_str
-                )
+                ui = None
+                while ui != 1:
+                    ui = self.get_user_input(
+                        outlook_item=(duration, category, comment), input_str=event_str
+                    )
 
                 # TODO: Better handling of quitting outlook mode
                 if ui == 0:  # pragma: no cover
