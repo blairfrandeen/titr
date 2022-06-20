@@ -65,7 +65,7 @@ def test_load_config(titr_default_config, console, monkeypatch):
     assert console.skip_all_day_events is True
     assert console.skip_event_status == [0, 3]
     assert console.skip_event_names == ["Lunch", "Meeting"]
-    test_config = configparser.ConfigParser()
+    configparser.ConfigParser()
 
 
 class MockTimeEntry:

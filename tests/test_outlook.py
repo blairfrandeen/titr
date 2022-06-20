@@ -3,7 +3,6 @@ import time
 import sys
 
 import pytest
-from test_titr import console, titr_default_config
 import titr
 
 if not sys.platform.startswith("win32"):
@@ -184,7 +183,6 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
     monkeypatch.setattr(console, "_set_normal_mode", _mock_set_mode)
     monkeypatch.setattr(console, "skip_event_names", ["Filtered Event"])
 
-    return_vals = ("1", None, "0")
     def _mock_user_input(**kwargs):
         return 0
 

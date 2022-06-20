@@ -10,9 +10,9 @@ https://github.com/blairfrandeen/titr
 import configparser
 import datetime
 import os
-from typing import Optional, Tuple, Dict, List, Callable
+from typing import Optional, Tuple, Dict, List, Callable, Any
 
-CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
+CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 
 
 def create_default_config():
@@ -21,7 +21,7 @@ def create_default_config():
     if os.path.isfile(CONFIG_FILE):
         raise FileExistsError(f"Config file '{CONFIG_FILE}' already exists!")
     config = configparser.ConfigParser(allow_no_value=True)
-    user_email = input("Enter your email to connect to outlook: ")
+    user_email: str = input("Enter your email to connect to outlook: ")
     config["outlook_options"] = {
         "email": user_email,
         "calendar_name": "Calendar",
@@ -50,7 +50,7 @@ def create_default_config():
         "i": "Incidental",
         "d": "Default Task",
     }
-    config_path = os.path.dirname(CONFIG_FILE)
+    config_path: str = os.path.dirname(CONFIG_FILE)
     if not os.path.exists(config_path):  # pragma: no cover
         os.mkdir(config_path)
     with open(CONFIG_FILE, "w") as config_file_handle:
@@ -81,17 +81,40 @@ class TimeEntry:
         self.tsk_str = session.task_list[self.task.lower()]
 
     def __repr__(self):
-        tsv_str: str = f"{self.date_str},{self.duration},{self.task},{self.category},{self.comment}"
-        return tsv_str
+        return f"{self.date_str},{self.duration},{self.task},{self.category}"
 
     @property
     def tsv_str(self):  # pragma: no cover
-        tsv_str: str = f"{self.date_str}\t{self.duration}\t{self.tsk_str}\t{self.cat_str}\t{self.comment}\n"
+        tsv_str: str = "".join(
+            [
+                self.date_str,
+                "\t",
+                str(self.duration),
+                "\t",
+                self.tsk_str,
+                "\t",
+                self.cat_str,
+                "\t",
+                self.comment,
+            ]
+        )
         return tsv_str
 
     def __str__(self):  # pragma: no cover
         # TODO: Improve formatting
-        self_str: str = f"{self.date_str}\t{round(self.duration,2)}\t\t{self.tsk_str}\t\t{self.cat_str}\t\t{self.comment}"
+        self_str: str = "".join(
+            [
+                self.date_str,
+                "\t",
+                str(round(self.duration, 2)),
+                "\t\t",
+                self.tsk_str,
+                "\t\t",
+                self.cat_str,
+                "\t\t",
+                self.comment,
+            ]
+        )
         return self_str
 
 
@@ -146,7 +169,10 @@ class ConsoleSession:
         self.default_task = config["general_options"]["default_task"]
         if self.default_task not in self.task_list.keys():
             print(
-                f"Warning: Default tasks '{self.default_task}' not found in {config_file}."
+                "Warning: Default tasks '",
+                self.default_task,
+                "' not found in ",
+                config_file,
             )
             self.default_task = list(self.task_list.keys())[0]
 
@@ -155,7 +181,10 @@ class ConsoleSession:
         if self.default_category not in self.category_list.keys():
             self.default_category = int(list(self.category_list.keys())[0])
             print(
-                f"Warning: Default category '{self.default_category}' not found in {config_file}."
+                "Warning: Default category '",
+                self.default_category,
+                "'not found in ",
+                config_file,
             )
 
         # TODO: Error handling
@@ -179,7 +208,7 @@ class ConsoleSession:
     def get_user_input(self, outlook_item=None, input_str: str = "> ") -> Optional[int]:
         user_input: str = input(input_str)
         match user_input.split(" "):
-            case [str(duration), *entry_args] if is_float(duration):
+            case [str(duration), *_] if is_float(duration):
                 self._add_entry(user_input, outlook_item)
                 return 1
             case [alias, *_] if self._is_alias(alias, "add"):
@@ -210,7 +239,8 @@ class ConsoleSession:
             case [alias, *_] if self._is_alias(alias, "undo"):
                 self.undo_last()
             case [alias, *_] if self._is_alias(alias, "quit"):
-                self.command_list["quit"][1]()
+                if self.command_list["quit"] is not None:
+                    self.command_list["quit"][1]()
                 return 0
             case [alias, str(command)] if self._is_alias(alias, "help"):
                 for name, cmd in self.command_list.items():
@@ -228,7 +258,7 @@ class ConsoleSession:
 
         return None
 
-    def _add_entry(self, user_input, outlook_item=None):
+    def _add_entry(self, user_input: str, outlook_item=None) -> None:
         """Add a new entry to the time log.
 
         Format is <duration> [<category> <task> <comment>]
@@ -246,7 +276,7 @@ class ConsoleSession:
         1 2 this is one hour in category 2
         2.1     (2.1 hrs, default category & task, no comment)
         """
-        entry_args = self._parse_new_entry(user_input)
+        entry_args: Optional[Dict[Any, Any]] = self._parse_new_entry(user_input)
         if outlook_item:
             if not entry_args:
                 entry_args = dict()
@@ -257,13 +287,13 @@ class ConsoleSession:
             self.time_entries.append(TimeEntry(self, **entry_args))
             print(self.time_entries[-1])
 
-    def _is_alias(self, alias, command):
+    def _is_alias(self, alias: str, command: str) -> bool:
         """Test if a user command is an alias for a known command."""
         if command not in self.command_list.keys():
             return False
         return alias.lower() in self.command_list[command][0]
 
-    def import_from_outlook(self):
+    def import_from_outlook(self) -> None:
         """Import appointments from outlook."""
         outlook_items = get_outlook_items(
             self.date, self.calendar_name, self.outlook_account
@@ -296,7 +326,8 @@ class ConsoleSession:
                         break
 
                 # TODO: Improve formatting
-                event_str = f"{comment}\n{self.category_list[category]} - {round(duration,2)} hr > "
+                cat_str = self.category_list[category]
+                event_str = f"{comment}\n{cat_str} - {round(duration,2)} hr > "
                 ui = None
                 while ui != 1:
                     try:
@@ -317,9 +348,9 @@ class ConsoleSession:
             self._set_normal_mode()
             self.preview_output()
 
-    def _set_outlook_mode(self):
+    def _set_outlook_mode(self) -> None:
         """Set console mode to add items from outlook."""
-        replace_commands = ["outlook", "date", "quit"]
+        replace_commands: list[str] = ["outlook", "date", "quit"]
         self.default_commands = dict()
         for cmd in replace_commands:
             self.default_commands[cmd] = self.command_list.pop(cmd)
@@ -329,13 +360,13 @@ class ConsoleSession:
             self._set_normal_mode,
         )
 
-    def _set_normal_mode(self):
+    def _set_normal_mode(self) -> None:
         """Return console to normal mode."""
         for cmd in self.default_commands.keys():
 
             self.command_list[cmd] = self.default_commands[cmd]
 
-    def set_date(self, new_date=datetime.date.today()):
+    def set_date(self, new_date: datetime.date = datetime.date.today()) -> None:
         """Set the date for time entries.
 
         Enter 'date' with no arguments to set date to today.
@@ -354,7 +385,7 @@ class ConsoleSession:
 
         Returns None for blank entry
         Else returns a dict to be passed to a new TimeEntry"""
-        if user_input == "":
+        if raw_input == "":
             return None
         user_input: List[str] = raw_input.split(" ")
         duration = float(user_input[0])
@@ -396,9 +427,11 @@ class ConsoleSession:
             case (str(cat_key), str(task), *comment) if (
                 not is_float(cat_key) and task.lower() not in self.task_list.keys()
             ):
-                comment: str = (cat_key + " " + task + " " + " ".join(comment)).strip()
-                if comment:
-                    new_entry_arguments["comment"] = comment
+                new_comment: str = (
+                    cat_key + " " + task + " " + " ".join(comment)
+                ).strip()
+                if new_comment:
+                    new_entry_arguments["comment"] = new_comment
             case _:
                 raise ValueError("Invalid arguments for time entry")
 
@@ -420,11 +453,11 @@ class ConsoleSession:
                 entry.duration + scale_amount * entry.duration / unscaled_total
             )
 
-    def copy_output(self):
+    def copy_output(self) -> None:
         """Copy output to clipboard."""
         import pyperclip
 
-        output_str = ""
+        output_str: str = ""
         for entry in self.time_entries:
             output_str += entry.tsv_str
 
@@ -438,7 +471,7 @@ class ConsoleSession:
             print(entry)
         print(f"TOTAL\t\t{self.total_duration}")
 
-    def undo_last(self):
+    def undo_last(self) -> None:
         """Undo last entry."""
         self.time_entries = self.time_entries[:-1]
 
@@ -459,7 +492,7 @@ class ConsoleSession:
                 print(f"{function[0]}\t-\t{summary_doc}")
 
     @property
-    def total_duration(self):
+    def total_duration(self) -> float:
         return round(sum([entry.duration for entry in self.time_entries]), 2)
 
     def list_categories_and_tasks(self):
@@ -498,12 +531,12 @@ def get_outlook_items(
         return None
 
     # Time format string requried by MAPI to filter by date
-    MAPI_TIME_FORMAT = "%m-%d-%Y %I:%M %p"
+    MAPI_TIME_FORMAT: str = "%m-%d-%Y %I:%M %p"
     cal_items = calendar.Items
     cal_items.Sort("Start", False)
     cal_items.IncludeRecurrences = True
-    search_end = search_date + datetime.timedelta(days=1)
-    search_str = "".join(
+    search_end: datetime.date = search_date + datetime.timedelta(days=1)
+    search_str: str = "".join(
         [
             "[Start] >= '",
             search_date.strftime(MAPI_TIME_FORMAT),
@@ -539,7 +572,7 @@ def is_float(item: str) -> bool:
 
 def parse_date(datestr: str) -> datetime.date:
     try:
-        date_delta = int(datestr)
+        date_delta: int = int(datestr)
     except ValueError:
         pass
     else:
@@ -547,7 +580,7 @@ def parse_date(datestr: str) -> datetime.date:
             raise ValueError("Date cannot be in the future.")
         return datetime.date.today() + datetime.timedelta(days=date_delta)
 
-    new_date = datetime.date.fromisoformat(datestr)
+    new_date: datetime.date = datetime.date.fromisoformat(datestr)
     if new_date > datetime.date.today():
         raise ValueError("Date cannot be in the future.")
     return new_date
@@ -565,9 +598,6 @@ def main() -> None:
             print(f"Error: {err}")
         except ImportError as err:
             print(err)
-            print(
-                "Missing depedency. Try 'pip install pywin32' or 'pip install pyperclip'"
-            )
 
 
 if __name__ == "__main__":

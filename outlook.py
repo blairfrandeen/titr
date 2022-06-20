@@ -49,7 +49,7 @@ for item in cal_filtered:
 #    for rec in range(item.Recipients.Count):
 #        print(item.Recipients.Item(rec + 1).Name)
 
-"""      
+"""
         item.End.strftime("%Y-%m-%d"),           # end time, datetime
         item.AllDayEvent,   # boolean
         item.Location,
