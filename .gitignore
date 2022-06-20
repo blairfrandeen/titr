@@ -6,3 +6,4 @@ __pycache__/
 *.ini
 .vscode/settings.json
 dist/
+src/*egg-info*
