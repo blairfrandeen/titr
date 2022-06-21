@@ -96,6 +96,7 @@ class TimeEntry:
                 self.comment,
             ]
         )
+        tsv_str = tsv_str + "\n"
         return tsv_str
 
     def __str__(self):  # pragma: no cover
