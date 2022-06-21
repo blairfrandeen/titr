@@ -11,8 +11,10 @@ import configparser
 import datetime
 import os
 from typing import Optional, Tuple, Dict, List, Callable, Any
+from colorama import Fore, Style
 
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
+COLUMN_WIDTHS = [13, 8, 12, 25, 38]
 
 
 def create_default_config():
@@ -97,19 +99,24 @@ class TimeEntry:
         return tsv_str
 
     def __str__(self):  # pragma: no cover
-        # TODO: Improve formatting
-        self_str: str = "\t".join(
+        self_str = ""
+        for index, item in enumerate(
             [
                 self.date_str,
-                str(round(self.duration, 2)),
-                "\t",
+                self.duration,
                 self.tsk_str,
-                "\t",
                 self.cat_str,
-                "\t",
                 self.comment,
             ]
-        )
+        ):
+            if index == 1:
+                fmt, al = ".2f", "<"
+            else:
+                fmt, al = "", "<"
+            self_str += "{i:{al}{wd}{fmt}}".format(
+                i=item, al=al, fmt=fmt, wd=COLUMN_WIDTHS[index]
+            )
+
         return self_str
 
 
@@ -279,7 +286,7 @@ class ConsoleSession:
                 if key not in entry_args.keys():
                     entry_args[key] = outlook_item[index]
         if entry_args and entry_args["duration"] != 0:
-            self.time_entries.append(TimeEntry(self, **entry_args))
+            self.time_entries.append(TimeEntry(self, date=self.date, **entry_args))
             print(self.time_entries[-1])
 
     def _is_alias(self, alias: str, command: str) -> bool:
@@ -462,10 +469,21 @@ class ConsoleSession:
 
     def preview_output(self) -> None:
         """Preview output."""
-        print("DATE\t\tDURATION\tTASK\t\tCATEGORY\t\tCOMMENT")
+        print(Style.BRIGHT, end="")
+        for index, heading in enumerate(
+            ["DATE", "HOURS", "TASK", "CATEGORY", "COMMENT"]
+        ):
+            print(
+                "{heading:{wd}}".format(heading=heading, wd=COLUMN_WIDTHS[index]),
+                end="",
+            )
+        print(Style.NORMAL)
         for entry in self.time_entries:
             print(entry)
-        print(f"TOTAL\t\t{self.total_duration}")
+        print(Style.BRIGHT + Fore.GREEN, end="")
+        print("{s:{wd}}".format(s="TOTAL", wd=COLUMN_WIDTHS[0]), end="")
+        print("{d:<{wd}.2f}".format(d=self.total_duration, wd=COLUMN_WIDTHS[1]))
+        print(Style.NORMAL + Fore.RESET, end="")
 
     def undo_last(self) -> None:
         """Undo last entry."""
@@ -498,6 +516,7 @@ class ConsoleSession:
             (self.category_list, "CATEGORIES"),
         ]:  # pragma: no cover
             disp_dict(dictionary, name)
+            print()
 
 
 def get_outlook_items(
@@ -549,10 +568,9 @@ def get_outlook_items(
 
 def disp_dict(dictionary: dict, dict_name: str):  # pragma: no cover
     """Display items in a dict"""
-    print(f"{dict_name}: ")
-    print("--------------")
+    print(f"{Style.BRIGHT}{dict_name}{Style.NORMAL}: ")
     for key, value in dictionary.items():
-        print(f"{key}: {value}")
+        print(f"{Fore.BLUE}{key}{Fore.RESET}: {value}")
 
 
 def is_float(item: str) -> bool:
