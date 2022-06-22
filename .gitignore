@@ -7,4 +7,4 @@ __pycache__/
 .vscode/settings.json
 dist/
 *~
-src/*egg-info*
+src/titr.egg-info/*

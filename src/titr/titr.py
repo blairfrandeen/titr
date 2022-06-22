@@ -96,7 +96,6 @@ class TimeEntry:
                 self.comment,
             ]
         )
-        tsv_str = tsv_str + "\n"
         return tsv_str
 
     def __str__(self):  # pragma: no cover
@@ -118,7 +117,7 @@ class TimeEntry:
                 i=item, al=al, fmt=fmt, wd=COLUMN_WIDTHS[index]
             )
 
-        return self_str
+        return self_str.strip()
 
 
 class ConsoleSession:
@@ -463,9 +462,9 @@ class ConsoleSession:
 
         output_str: str = ""
         for entry in self.time_entries:
-            output_str += entry.tsv_str
+            output_str += entry.tsv_str + "\n"
 
-        pyperclip.copy(output_str)
+        pyperclip.copy(output_str.strip())
         print("TSV Output copied to clipboard.")
 
     def preview_output(self) -> None:

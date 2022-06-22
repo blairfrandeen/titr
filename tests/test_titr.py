@@ -168,9 +168,13 @@ def test_preview(console, time_entry, capsys):
 
 
 def test_copy(console, time_entry):
-    console.time_entries.append(time_entry)
+    for _ in range(3):
+        console.time_entries.append(time_entry)
     console.copy_output()
+    clipboard = pyperclip.paste()
     assert "test entry" in pyperclip.paste()
+    assert len(clipboard.split("\n")) == 3
+    assert len(clipboard.split("\n")[0].split("\t")) == 5
 
 
 def test_set_outlook_mode(console):
