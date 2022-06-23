@@ -523,7 +523,9 @@ class TimeEntry:
         return self_str.strip()
 
 
-def initialize_db(database_file: str = TITR_DB, test_flag: bool = False) -> None:
+def initialize_db(
+    database_file: str = TITR_DB, test_flag: bool = False
+) -> sqlite3.Connection:
     """Write the sessions time entries to a database."""
     db_connection = sqlite3.connect(database_file)
     cursor = db_connection.cursor()
@@ -532,35 +534,36 @@ def initialize_db(database_file: str = TITR_DB, test_flag: bool = False) -> None
     time_log_table = """--sql
         CREATE TABLE IF NOT EXISTS time_log(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date DATE,
             duration FLOAT,
             category_id INT,
             task_id INT,
             session_id INT,
-            comment STR
+            comment TEXT
         )
     """
     # Create category table
     category_table = """--sql
         CREATE TABLE IF NOT EXISTS categories(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name STR
+            name TEXT
         )
     """
     # Create task table
     task_table = """--sql
         CREATE TABLE IF NOT EXISTS tasks(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            key STR,
-            name STR
+            key TEXT,
+            name TEXT
         )
     """
     # Create task table
     session_table = """--sql
         CREATE TABLE IF NOT EXISTS sessions(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            titr_version STR,
-            user STR,
-            platform STR,
+            titr_version TEXT,
+            user TEXT,
+            platform TEXT,
             ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """
@@ -568,21 +571,62 @@ def initialize_db(database_file: str = TITR_DB, test_flag: bool = False) -> None
     for table in [time_log_table, category_table, task_table, session_table]:
         cursor.execute(table)
 
-    if not test_flag:  # pragma: no cover
-        db_connection.commit()
-        db_connection.close()
+    #  if not test_flag:  # pragma: no cover
+    db_connection.commit()
+
+    return db_connection
 
 
-def populate_category_tables(
-    console: ConsoleSession, database_file: str = TITR_DB
+def db_write_time_log(
+    console: ConsoleSession, db_connection: sqlite3.Connection, session_id: int
+) -> None:
+    """Write time entries from console session to database."""
+    cursor = db_connection.cursor()
+    write_entry = """--sql
+        INSERT INTO time_log (date, duration, category_id, task_id, comment, session_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """
+    for entry in console.time_entries:
+        # TODO: Get task_id
+        cursor.execute(
+            write_entry,
+            [
+                entry.date,
+                entry.duration,
+                entry.category,
+                entry.task,
+                entry.comment,
+                session_id,
+            ],
+        )
+    db_connection.commit()
+
+
+def populate_task_category_lists(
+    console: ConsoleSession,
+    db_connection: sqlite3.Connection,
 ) -> None:
     """Populate the category & task tables in the sqlite db."""
-    pass
+    write_categories = """--sql
+        REPLACE INTO categories (id, name) VALUES (?, ?)
+    """
+    write_tasks = """--sql
+        REPLACE INTO tasks (key, name) VALUES (?, ?)
+    """
+    cursor = db_connection.cursor()
+    for key, value in console.category_list.items():
+        cursor.execute(write_categories, [key, value])
+
+    for key, value in console.task_list.items():
+        cursor.execute(write_tasks, [key, value])
+
+    db_connection.commit()
 
 
-def db_session_metadata(database_file: str = TITR_DB, test_flag: bool = False) -> int:
+def db_session_metadata(
+    db_connection: sqlite3.Connection, test_flag: bool = False
+) -> int:
     """Make entry in session table and return the session id."""
-    db_connection = sqlite3.connect(database_file)
     cursor = db_connection.cursor()
     new_entry: str = """--sql
         INSERT INTO sessions (titr_version, user, platform) VALUES (?, ?, ?)
@@ -596,18 +640,26 @@ def db_session_metadata(database_file: str = TITR_DB, test_flag: bool = False) -
         user = None
     print(new_entry)
     cursor.execute(new_entry, [__version__, user, platform])
-    if not test_flag:  # pragma: no cover
-        db_connection.commit()
+    #  if not test_flag:  # pragma: no cover
+    db_connection.commit()
 
     get_session_id: str = """--sql
         SELECT MAX(id) from sessions
     """
     cursor.execute(get_session_id)
     session_id = cursor.fetchone()[0]
-    if not test_flag:  # pragma: no cover
-        db_connection.close()
+    #  if not test_flag:  # pragma: no cover
+    #  db_connection.close()
 
     return session_id
+
+
+def write_db(console: ConsoleSession) -> None:
+    """Write time entries to the database."""
+    db_connection: sqlite3.Connection = initialize_db()
+    session_id = db_session_metadata(db_connection)
+    populate_task_category_lists(console, db_connection)
+    db_connection.close()
 
 
 def get_outlook_items(
