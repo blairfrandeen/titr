@@ -10,10 +10,14 @@ https://github.com/blairfrandeen/titr
 import configparser
 import datetime
 import os
+import sqlite3
+import sys
 from typing import Optional, Tuple, Dict, List, Callable, Any
+from __init__ import __version__
 from colorama import Fore, Style
 
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
+TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 COLUMN_WIDTHS = [13, 8, 12, 25, 38]
 
 
@@ -59,65 +63,6 @@ def create_default_config():
         config.write(config_file_handle)
 
     return CONFIG_FILE
-
-
-class TimeEntry:
-    def __init__(
-        self,
-        session,
-        duration: float,
-        category: int = None,
-        task: str = None,
-        comment: str = "",
-        date: datetime.date = datetime.date.today(),
-    ) -> None:
-        self.duration: float = duration
-        self.category = session.default_category if category is None else category
-        self.task = session.default_task if task is None else task
-        self.comment: str = comment
-        self.date: datetime.date = date
-
-        self.timestamp: datetime.datetime = datetime.datetime.today()
-        self.date_str: str = self.date.isoformat()
-        self.cat_str = session.category_list[self.category]
-        self.tsk_str = session.task_list[self.task.lower()]
-
-    def __repr__(self):
-        return f"{self.date_str},{self.duration},{self.task},{self.category}"
-
-    @property
-    def tsv_str(self):  # pragma: no cover
-        tsv_str: str = "\t".join(
-            [
-                self.date_str,
-                str(self.duration),
-                self.tsk_str,
-                self.cat_str,
-                self.comment,
-            ]
-        )
-        return tsv_str
-
-    def __str__(self):  # pragma: no cover
-        self_str = ""
-        for index, item in enumerate(
-            [
-                self.date_str,
-                self.duration,
-                self.tsk_str,
-                self.cat_str,
-                self.comment,
-            ]
-        ):
-            if index == 1:
-                fmt, al = ".2f", "<"
-            else:
-                fmt, al = "", "<"
-            self_str += "{i:{al}{wd}{fmt}}".format(
-                i=item, al=al, fmt=fmt, wd=COLUMN_WIDTHS[index]
-            )
-
-        return self_str.strip()
 
 
 class ConsoleSession:
@@ -517,6 +462,152 @@ class ConsoleSession:
         ]:  # pragma: no cover
             disp_dict(dictionary, name)
             print()
+
+
+class TimeEntry:
+    def __init__(
+        self,
+        session: ConsoleSession,
+        duration: float,
+        category: int = None,
+        task: str = None,
+        comment: str = "",
+        date: datetime.date = datetime.date.today(),
+    ) -> None:
+        self.duration: float = duration
+        self.category = session.default_category if category is None else category
+        self.task = session.default_task if task is None else task
+        self.comment: str = comment
+        self.date: datetime.date = date
+
+        self.timestamp: datetime.datetime = datetime.datetime.today()
+        self.date_str: str = self.date.isoformat()
+        self.cat_str = session.category_list[self.category]
+        self.tsk_str = session.task_list[self.task.lower()]
+
+    def __repr__(self):
+        return f"{self.date_str},{self.duration},{self.task},{self.category}"
+
+    @property
+    def tsv_str(self):  # pragma: no cover
+        tsv_str: str = "\t".join(
+            [
+                self.date_str,
+                str(self.duration),
+                self.tsk_str,
+                self.cat_str,
+                self.comment,
+            ]
+        )
+        return tsv_str
+
+    def __str__(self):  # pragma: no cover
+        self_str = ""
+        for index, item in enumerate(
+            [
+                self.date_str,
+                self.duration,
+                self.tsk_str,
+                self.cat_str,
+                self.comment,
+            ]
+        ):
+            if index == 1:
+                fmt, al = ".2f", "<"
+            else:
+                fmt, al = "", "<"
+            self_str += "{i:{al}{wd}{fmt}}".format(
+                i=item, al=al, fmt=fmt, wd=COLUMN_WIDTHS[index]
+            )
+
+        return self_str.strip()
+
+
+def initialize_db(database_file: str = TITR_DB, test_flag: bool = False) -> None:
+    """Write the sessions time entries to a database."""
+    db_connection = sqlite3.connect(database_file)
+    cursor = db_connection.cursor()
+
+    # Create time log table
+    time_log_table = """--sql
+        CREATE TABLE IF NOT EXISTS time_log(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            duration FLOAT,
+            category_id INT,
+            task_id INT,
+            session_id INT,
+            comment STR
+        )
+    """
+    # Create category table
+    category_table = """--sql
+        CREATE TABLE IF NOT EXISTS categories(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name STR
+        )
+    """
+    # Create task table
+    task_table = """--sql
+        CREATE TABLE IF NOT EXISTS tasks(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key STR,
+            name STR
+        )
+    """
+    # Create task table
+    session_table = """--sql
+        CREATE TABLE IF NOT EXISTS sessions(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            titr_version STR,
+            user STR,
+            platform STR,
+            ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """
+
+    for table in [time_log_table, category_table, task_table, session_table]:
+        cursor.execute(table)
+
+    if not test_flag:  # pragma: no cover
+        db_connection.commit()
+        db_connection.close()
+
+
+def populate_category_tables(
+    console: ConsoleSession, database_file: str = TITR_DB
+) -> None:
+    """Populate the category & task tables in the sqlite db."""
+    pass
+
+
+def db_session_metadata(database_file: str = TITR_DB, test_flag: bool = False) -> int:
+    """Make entry in session table and return the session id."""
+    db_connection = sqlite3.connect(database_file)
+    cursor = db_connection.cursor()
+    new_entry: str = """--sql
+        INSERT INTO sessions (titr_version, user, platform) VALUES (?, ?, ?)
+    """
+    platform: str = sys.platform
+    if "linux" in platform:
+        user = os.uname().nodename
+    elif "win" in platform:
+        user = os.getlogin()
+    else:
+        user = None
+    print(new_entry)
+    cursor.execute(new_entry, [__version__, user, platform])
+    if not test_flag:  # pragma: no cover
+        db_connection.commit()
+
+    get_session_id: str = """--sql
+        SELECT MAX(id) from sessions
+    """
+    cursor.execute(get_session_id)
+    session_id = cursor.fetchone()[0]
+    if not test_flag:  # pragma: no cover
+        db_connection.close()
+
+    return session_id
 
 
 def get_outlook_items(

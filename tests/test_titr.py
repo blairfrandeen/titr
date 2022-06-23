@@ -165,6 +165,7 @@ def test_preview(console, time_entry, capsys):
     console.preview_output()
     captured = capsys.readouterr()
     assert "test entry" in captured.out
+    assert len(captured.out.split("\n")) == 4
 
 
 def test_copy(console, time_entry):
