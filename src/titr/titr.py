@@ -638,7 +638,7 @@ def db_session_metadata(
         user = os.getlogin()
     else:
         user = None
-    print(new_entry)
+
     cursor.execute(new_entry, [__version__, user, platform])
     #  if not test_flag:  # pragma: no cover
     db_connection.commit()
@@ -654,11 +654,25 @@ def db_session_metadata(
     return session_id
 
 
-def write_db(console: ConsoleSession) -> None:
+def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     """Write time entries to the database."""
+
+    # Establish a connection, and initialize the database if not already done.
     db_connection: sqlite3.Connection = initialize_db()
-    session_id = db_session_metadata(db_connection)
+
+    # Populate the task and category lists in the database from the titr.cfg
+    # File, which has already been loaded into the console session
+    # TODO: Store task & category lists in the database, and make them
+    # modifiable through the program
     populate_task_category_lists(console, db_connection)
+
+    # Write metadata about the current session, and get the session id
+    session_id = db_session_metadata(db_connection)
+
+    # Write the time entries to the database
+    db_write_time_log(console, db_connection, session_id)
+
+    # Close the connection
     db_connection.close()
 
 
