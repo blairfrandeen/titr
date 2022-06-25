@@ -17,7 +17,8 @@ from __init__ import __version__
 from colorama import Fore, Style
 
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
-TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
+#  TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
+TITR_DB: str = "titr_test.db"
 COLUMN_WIDTHS = [13, 8, 12, 25, 38]
 
 
@@ -72,7 +73,7 @@ class ConsoleSession:
             "add": (["add"], self._add_entry),
             "clear": (["clear"], self.clear),
             "clip": (["clip"], self.copy_output),
-            "commit": (["c", "commit"], None),  # not implemented
+            "commit": (["c", "commit"], write_db),  # not implemented
             "date": (["d", "date"], self.set_date),
             "help": (["h", "help"], self.help_msg),
             "list": (["ls", "list"], self.list_categories_and_tasks),
@@ -166,7 +167,7 @@ class ConsoleSession:
             case [alias, *_] if self._is_alias(alias, "clip"):
                 self.copy_output()
             case [alias, *_] if self._is_alias(alias, "commit"):
-                raise NotImplementedError
+                write_db(self)
             case [alias] if self._is_alias(alias, "date"):
                 self.set_date()
             case [alias, str(date_input)] if self._is_alias(alias, "date"):
@@ -586,15 +587,21 @@ def db_write_time_log(
         INSERT INTO time_log (date, duration, category_id, task_id, comment, session_id)
         VALUES (?, ?, ?, ?, ?, ?)
     """
+    get_task_id = """--sql
+        SELECT id, key
+        FROM tasks
+        WHERE key = (?)
+    """
     for entry in console.time_entries:
-        # TODO: Get task_id
+        cursor.execute(get_task_id, [entry.task])
+        task_id = cursor.fetchone()[0]
         cursor.execute(
             write_entry,
             [
                 entry.date,
                 entry.duration,
                 entry.category,
-                entry.task,
+                task_id,
                 entry.comment,
                 session_id,
             ],
@@ -611,14 +618,16 @@ def populate_task_category_lists(
         REPLACE INTO categories (id, name) VALUES (?, ?)
     """
     write_tasks = """--sql
-        REPLACE INTO tasks (key, name) VALUES (?, ?)
+        REPLACE INTO tasks (id, key, name) VALUES (?, ?, ?)
     """
     cursor = db_connection.cursor()
     for key, value in console.category_list.items():
         cursor.execute(write_categories, [key, value])
 
+    task_id = 0
     for key, value in console.task_list.items():
-        cursor.execute(write_tasks, [key, value])
+        cursor.execute(write_tasks, [task_id, key, value])
+        task_id += 1
 
     db_connection.commit()
 
@@ -657,12 +666,14 @@ def db_session_metadata(
 def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     """Write time entries to the database."""
 
+    if len(console.time_entries) == 0:
+        raise ValueError("Nothing to commit. Get back to work.")
     # Establish a connection, and initialize the database if not already done.
     db_connection: sqlite3.Connection = initialize_db()
 
     # Populate the task and category lists in the database from the titr.cfg
     # File, which has already been loaded into the console session
-    # TODO: Store task & category lists in the database, and make them
+    # TODO: Store task & category lists exclusively in the database
     # modifiable through the program
     populate_task_category_lists(console, db_connection)
 
@@ -674,6 +685,10 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
 
     # Close the connection
     db_connection.close()
+
+    # Clear all time entries so they aren't entered a second time
+    console.time_entries = []
+    print(f"Commited entries to {TITR_DB}.")
 
 
 def get_outlook_items(

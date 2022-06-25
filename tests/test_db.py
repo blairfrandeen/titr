@@ -20,17 +20,13 @@ TEST_DB = ":memory:"
 
 @pytest.fixture
 def db_connection(monkeypatch):
-    print("Creating Tables in test DB")
-
     # Remove old database file if it exists
     if TEST_DB != ":memory:":
         os.remove(TEST_DB)
     connection = initialize_db(TEST_DB, test_flag=True)
     #  connection = sqlite3.connect(TEST_DB, detect_types=sqlite3.PARSE_DECLTYPES)
-    print("Connected to Test DB")
     yield connection
     connection.commit()
-    print("Closing Test DB...")
     connection.close()
 
 
@@ -72,6 +68,7 @@ def test_populate_tables(console, db_connection):
 
 
 def test_write_time_log(console, db_connection):
+    populate_task_category_lists(console, db_connection)
     console.time_entries.append(
         TimeEntry(console, duration=1, comment="test", task="t", category=9)
     )
@@ -91,7 +88,7 @@ def test_write_time_log(console, db_connection):
             0,
             cs_entry.duration,
             cs_entry.category,
-            cs_entry.task,
+            1,  # default task id
             cs_entry.date.strftime("%Y-%m-%d"),
             cs_entry.comment,
         ]
