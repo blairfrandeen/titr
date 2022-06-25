@@ -55,16 +55,16 @@ def test_load_config(titr_default_config, console, monkeypatch):
 
     #  monkeypatch.setattr(console, "load_config", lambda: titr_default_config)
     monkeypatch.setattr(titr, "create_default_config", lambda: titr_default_config)
-    console.load_config(config_file="none")
-    assert console.category_list[2] == "Deep Work"
-    assert console.category_list[3] == "Email"
-    assert console.task_list["i"] == "Incidental"
-    assert console.task_list["d"] == "Default Task"
-    assert console.default_task == "i"
-    assert console.default_category == 2
-    assert console.skip_all_day_events is True
-    assert console.skip_event_status == [0, 3]
-    assert console.skip_event_names == ["Lunch", "Meeting"]
+    console.config = titr.load_config(config_file="none")
+    assert console.config.category_list[2] == "Deep Work"
+    assert console.config.category_list[3] == "Email"
+    assert console.config.task_list["i"] == "Incidental"
+    assert console.config.task_list["d"] == "Default Task"
+    assert console.config.default_task == "i"
+    assert console.config.default_category == 2
+    assert console.config.skip_all_day_events is True
+    assert console.config.skip_event_status == [0, 3]
+    assert console.config.skip_event_names == ["Lunch", "Meeting"]
     configparser.ConfigParser()
 
 
@@ -128,6 +128,7 @@ def test_float_bad_inputs():
             titr.is_float(item)
 
 
+# TODO: Parametrize
 def test_scale_duration(console, capsys):
     # initial list, scale total, final list
     scale_tests = [
@@ -149,13 +150,13 @@ def test_scale_duration(console, capsys):
         console.time_entries = []
         for duration in test[0]:
             console.time_entries.append(titr.TimeEntry(console, duration))
-        console.scale_time_entries(test[1])
+        titr.scale_time_entries(console, test[1])
         for index, entry in enumerate(console.time_entries):
             print(entry, index)
             assert entry.duration == test[2][index]
 
     console.time_entries = []
-    console.scale_time_entries(3)
+    titr.scale_time_entries(console, 3)
     captured = capsys.readouterr()
     assert "cannot scale from zero" in captured.out
 
@@ -171,7 +172,7 @@ def test_preview(console, time_entry, capsys):
 def test_copy(console, time_entry):
     for _ in range(3):
         console.time_entries.append(time_entry)
-    console.copy_output()
+    titr.copy_output(console)
     clipboard = pyperclip.paste()
     assert "test entry" in pyperclip.paste()
     assert len(clipboard.split("\n")) == 3
@@ -196,24 +197,24 @@ def test_set_outlook_mode(console):
 
 def test_time_entry(console):
     te = titr.TimeEntry(console, 2)
-    assert te.category == console.default_category
-    assert te.task == console.default_task
+    assert te.category == console.config.default_category
+    assert te.task == console.config.default_task
     assert te.comment == ""
 
 
 def test_clear(console, time_entry):
     console.time_entries = [time_entry, time_entry]
-    console.clear()
+    titr.clear_entries(console)
     assert console.time_entries == []
 
 
 def test_undo(console, time_entry):
     console.time_entries = [time_entry, time_entry]
-    console.undo_last()
+    titr.undo_last(console)
     assert console.time_entries == [time_entry]
-    console.undo_last()
+    titr.undo_last(console)
     assert console.time_entries == []
-    console.undo_last()
+    titr.undo_last(console)
     assert console.time_entries == []
 
 
@@ -296,8 +297,8 @@ valid_time_entries = [
 
 
 @pytest.mark.parametrize("user_input, output_dict", valid_time_entries)
-def test_parse_new_entry(console, user_input, output_dict):
-    assert console._parse_new_entry(user_input) == output_dict
+def test_parse_time_entry(console, user_input, output_dict):
+    assert titr._parse_time_entry(console, user_input) == output_dict
 
 
 @pytest.mark.parametrize(
@@ -311,21 +312,21 @@ def test_parse_new_entry(console, user_input, output_dict):
 )
 def test_parse_invalid_entries(console, invalid_entry):
     with pytest.raises(ValueError):
-        console._parse_new_entry(invalid_entry)
+        titr._parse_time_entry(console, invalid_entry)
 
 
 def test_add_entry(console, monkeypatch):
     mock_inputs = ["0", "1 2 i terst"]
     mock_parse = {"duration": 5, "category": 3, "comment": "test item"}
 
-    monkeypatch.setattr(console, "_parse_new_entry", lambda _: mock_parse)
-    console._add_entry(mock_inputs)
+    monkeypatch.setattr(titr, "_parse_time_entry", lambda *_: mock_parse)
+    titr._add_entry(console, mock_inputs)
     assert console.time_entries[0].duration == 5
     mock_parse["duration"] = 4
-    console._add_entry(mock_inputs, outlook_item=(5, 3, "1"))
+    titr._add_entry(console, mock_inputs, outlook_item=(5, 3, "1"))
     assert console.time_entries[1].duration == 4
     mock_parse = None
-    console._add_entry(mock_inputs, outlook_item=(2, 2, "5"))
+    titr._add_entry(console, mock_inputs, outlook_item=(2, 2, "5"))
     assert console.time_entries[2].duration == 2
 
 
@@ -382,17 +383,17 @@ def test_get_user_input_invalid(cmd, monkeypatch, console):
 
 def test_get_user_input(console, monkeypatch, capsys):
     valid_commands = {
-        "clear": ["clear"],
-        "copy_output": ["clip"],
+        #  "clear": ["clear"],
+        #  "copy_output": ["clip"],
         #  'commit':   ['c', 'commit'],
         #  "set_date": ["d", "date", "D", "d -1", "date 2013-08-05"],
         "import_from_outlook": ["O", "outlook"],
         #  "preview_output": ["p", "preview"],
-        "list_categories_and_tasks": ["ls", "list"],
-        "undo_last": ["z", "undo"],
-        "scale_time_entries": ["s 9", "scale 10"],
+        #  "list_categories_and_tasks": ["ls", "list"],
+        #  "undo_last": ["z", "undo"],
+        #  "scale_time_entries": ["s 9", "scale 10"],
         "help_msg": ["h", "help", "help scale", "help date", "add"],
-        "_parse_new_entry": [".5 1 i j", "1 2 g test"],
+        #  "_parse_new_entry": [".5 1 i j", "1 2 g test"],
         #  'exit':     ["q", "quit"],
     }
     for cmd, aliases in valid_commands.items():

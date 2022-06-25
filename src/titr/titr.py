@@ -15,6 +15,7 @@ import sys
 from typing import Optional, Tuple, Dict, List, Callable, Any
 from __init__ import __version__
 from colorama import Fore, Style
+from dataclasses import dataclass, field
 
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 #  TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
@@ -22,6 +23,23 @@ TITR_DB: str = "titr_test.db"
 COLUMN_WIDTHS = [13, 8, 12, 25, 38]
 
 
+def main() -> None:
+    print("Welcome to titr.")
+    cs = ConsoleSession()
+    while True:  # pragma: no cover
+        try:
+            cs.get_user_input()
+        except NotImplementedError:
+            print("not implemented")
+        except (ValueError, TypeError, KeyError) as err:
+            print(f"Error: {err}")
+        except ImportError as err:
+            print(err)
+
+
+####################
+# PUBLIC FUNCTIONS #
+####################
 def create_default_config():
     """Create a default configuration file"""
     # Ensure we don't accidentally overwrite config
@@ -66,41 +84,50 @@ def create_default_config():
     return CONFIG_FILE
 
 
+###########
+# CLASSES #
+###########
+@dataclass
+class Config:
+    category_list: dict = field(default_factory=dict)
+    task_list: dict = field(default_factory=dict)
+
+
 class ConsoleSession:
     def __init__(self) -> None:
         self.time_entries: List[TimeEntry] = []
         self.command_list: Dict[str, Tuple[List[str], Optional[Callable]]] = {
-            "add": (["add"], self._add_entry),
-            "clear": (["clear"], self.clear),
-            "clip": (["clip"], self.copy_output),
+            "add": (["add"], _add_entry),
+            "clear": (["clear"], clear_entries),
+            "clip": (["clip"], copy_output),
             "commit": (["c", "commit"], write_db),  # not implemented
             "date": (["d", "date"], set_date),
             "help": (["h", "help"], self.help_msg),
-            "list": (["ls", "list"], self.list_categories_and_tasks),
+            "list": (["ls", "list"], list_categories_and_tasks),
             "outlook": (["o", "outlook"], self.import_from_outlook),
             "null_cmd": ([""], None),
             "preview": (["p", "preview"], preview_output),
             "quit": (["q", "quit"], exit),
-            "scale": (["s", "scale"], self.scale_time_entries),
-            "undo": (["z", "undo"], self.undo_last),
+            "scale": (["s", "scale"], scale_time_entries),
+            "undo": (["z", "undo"], undo_last),
         }
         self.date = datetime.date.today()
         exit.__doc__ = "Quit"
-        self.load_config()
+        self.config = load_config()
 
     def get_user_input(self, outlook_item=None, input_str: str = "> ") -> Optional[int]:
         user_input: str = input(input_str)
         match user_input.split(" "):
             case [str(duration), *_] if is_float(duration):
-                self._add_entry(user_input, outlook_item)
+                _add_entry(self, user_input, outlook_item)
                 return 1
             case [alias, *_] if self._is_alias(alias, "add"):
                 # self.command_list['help'][1](command='add')
                 self.help_msg(command="add")
             case [alias, *_] if self._is_alias(alias, "clear"):
-                self.clear()
+                clear_entries(self)
             case [alias, *_] if self._is_alias(alias, "clip"):
-                self.copy_output()
+                copy_output()
             case [alias, *_] if self._is_alias(alias, "commit"):
                 write_db(self)
             case [alias] if self._is_alias(alias, "date"):
@@ -109,18 +136,18 @@ class ConsoleSession:
                 new_date = parse_date(datestr=date_input)
                 set_date(self, new_date)
             case [alias, *_] if self._is_alias(alias, "list"):
-                self.list_categories_and_tasks()
+                list_categories_and_tasks(self)
             case [alias] if self._is_alias(alias, "outlook"):
                 self.import_from_outlook()
             case [alias, *_] if self._is_alias(alias, "preview"):
                 preview_output(self)
             case [alias, str(scale_target)] if self._is_alias(alias, "scale"):
                 if is_float(scale_target):
-                    self.scale_time_entries(float(scale_target))
+                    scale_time_entries(self, float(scale_target))
                 else:
                     raise TypeError("Invalid argument, scale_target must be float")
             case [alias, *_] if self._is_alias(alias, "undo"):
-                self.undo_last()
+                undo_last(self)
             case [alias, *_] if self._is_alias(alias, "quit"):
                 if self.command_list["quit"] is not None:
                     self.command_list["quit"][1]()
@@ -134,106 +161,12 @@ class ConsoleSession:
             case [alias] if self._is_alias(alias, "help"):
                 self.help_msg()
             case [alias] if self._is_alias(alias, "null_cmd"):  # pragma: no cover
-                self._add_entry(user_input, outlook_item)
+                _add_entry(self, user_input, outlook_item)
                 return 1
             case _:
                 raise ValueError(f'Invalid input: "{user_input}"')
 
         return None
-
-    def load_config(self, config_file=CONFIG_FILE):
-        """Load and validate configuration options."""
-        # look for a config file in the working directory
-        # if it doesn't exist, create it with some default options
-        if not os.path.isfile(config_file):
-            config_file = create_default_config()
-        config = configparser.ConfigParser()
-        config.read(config_file)
-        self.category_list = {}
-        self.task_list = {}
-        for key in config["categories"]:
-            try:
-                cat_key = int(key)
-            except ValueError as err:
-                print(f"Warning: Skipped category key {key} in {config_file}: {err}")
-                continue
-            self.category_list[cat_key] = config["categories"][key]
-        for key in config["tasks"]:
-            if len(key) > 1:
-                print(f"Warning: Skipped task key {key} in {config_file}: len > 1.")
-                continue
-            if key.isdigit():
-                print(f"Warning: Skipped task key {key} in {config_file}: Digit")
-                continue
-            self.task_list[key] = config["tasks"][key]
-
-        self.default_task = config["general_options"]["default_task"]
-        if self.default_task not in self.task_list.keys():
-            print(
-                "Warning: Default tasks '",
-                self.default_task,
-                "' not found in ",
-                config_file,
-            )
-            self.default_task = list(self.task_list.keys())[0]
-
-        # TODO: Error handling for default category as not an int
-        self.default_category = int(config["general_options"]["default_category"])
-        if self.default_category not in self.category_list.keys():
-            self.default_category = int(list(self.category_list.keys())[0])
-            print(
-                "Warning: Default category '",
-                self.default_category,
-                "'not found in ",
-                config_file,
-            )
-
-        # TODO: Error handling
-        self.max_duration = float(config["general_options"]["max_entry_duration"])
-
-        self.outlook_account = config["outlook_options"]["email"]
-        self.calendar_name = config["outlook_options"]["calendar_name"]
-        self.skip_event_names = [
-            event.strip()
-            for event in config["outlook_options"]["skip_event_names"].split(",")
-        ]
-        # TODO: Error handling
-        self.skip_event_status = [
-            int(status)
-            for status in config["outlook_options"]["skip_event_status"].split(",")
-        ]
-        self.skip_all_day_events = config.getboolean(
-            "outlook_options", "skip_all_day_events"
-        )
-
-    def _add_entry(self, user_input: str, outlook_item=None) -> None:
-        """Add a new entry to the time log.
-
-        Format is <duration> [<category> <task> <comment>]
-        There is no need to type 'add'
-        Duration is required and must be able to be converted to float
-        Type 'ls accounts' and 'ls categories' for available accounts & categories
-        Category must be an integer; task must be a single character
-        Any text after the task is considered a comment.
-        All arguments other than duration are optional.
-
-        Some examples:
-        1 2 i this is one hour in category 2 in task 'i'
-        1 this is one hour on default task & category
-        .5 i this is one hour in task 'i'
-        1 2 this is one hour in category 2
-        2.1     (2.1 hrs, default category & task, no comment)
-        """
-        entry_args: Optional[Dict[Any, Any]] = self._parse_new_entry(user_input)
-        if outlook_item:
-            if not entry_args:
-                entry_args = dict()
-            for index, key in enumerate(["duration", "category", "comment"]):
-                if key not in entry_args.keys():
-                    entry_args[key] = outlook_item[index]
-        if entry_args and entry_args["duration"] != 0:
-            self.time_entries.append(TimeEntry(self, date=self.date, **entry_args))
-            print(self.time_entries[-1])
 
     def _is_alias(self, alias: str, command: str) -> bool:
         """Test if a user command is an alias for a known command."""
@@ -256,25 +189,25 @@ class ConsoleSession:
             print(f"Found total of {num_items} events for {self.date}:")
             self._set_outlook_mode()
             for item in outlook_items:
-                if item.AllDayEvent is True and self.skip_all_day_events is True:
+                if item.AllDayEvent is True and self.config.skip_all_day_events is True:
                     continue
-                if item.Subject in self.skip_event_names:
+                if item.Subject in self.config.skip_event_names:
                     continue
-                if item.BusyStatus in self.skip_event_status:
+                if item.BusyStatus in self.config.skip_event_status:
                     continue
                 comment = item.Subject
                 duration = item.Duration / 60  # convert minutes to hours
 
                 # TODO: Accept multiple categories
                 appt_category = item.Categories.split(",")[0].strip()
-                category = self.default_category
-                for key, cat in self.category_list.items():
+                category = self.config.default_category
+                for key, cat in self.config.category_list.items():
                     if cat == appt_category:
                         category = key
                         break
 
                 # TODO: Improve formatting
-                cat_str = self.category_list[category]
+                cat_str = self.config.category_list[category]
                 event_str = f"{comment}\n{cat_str} - {round(duration,2)} hr > "
                 ui = None
                 while ui != 1:
@@ -314,99 +247,6 @@ class ConsoleSession:
 
             self.command_list[cmd] = self.default_commands[cmd]
 
-    def _parse_new_entry(self, raw_input: str) -> Optional[dict]:
-        """Parse a user input into a time entry.
-
-        Returns None for blank entry
-        Else returns a dict to be passed to a new TimeEntry"""
-        if raw_input == "":
-            return None
-        user_input: List[str] = raw_input.split(" ")
-        duration = float(user_input[0])
-        if duration > self.max_duration:
-            raise ValueError("You're working too much.")
-        if duration < 0:
-            raise ValueError("You can't unwork.")
-        new_entry_arguments: dict = {"duration": duration}
-        entry_args: List[str] = user_input[1:]
-        match entry_args:
-            # No arguments, add entry with all defaults
-            case ([] | "" | None):
-                pass
-            # All arguments including comment
-            case (str(cat_key), str(task), *comment) if (
-                is_float(cat_key)
-                and int(cat_key) in self.category_list.keys()
-                and task.lower() in self.task_list.keys()
-            ):
-                new_entry_arguments["category"] = int(cat_key)
-                new_entry_arguments["task"] = task
-                if comment:
-                    new_entry_arguments["comment"] = " ".join(comment).strip()
-            # Category argument, no task argument
-            case (str(cat_key), *comment) if (
-                is_float(cat_key) and int(cat_key) in self.category_list.keys()
-            ):
-                new_entry_arguments["category"] = int(cat_key)
-                if comment:
-                    new_entry_arguments["comment"] = " ".join(comment).strip()
-            # task argument, no category argument
-            case (str(task), *comment) if (
-                not is_float(task) and task.lower() in self.task_list.keys()
-            ):
-                new_entry_arguments["task"] = task
-                if comment:
-                    new_entry_arguments["comment"] = " ".join(comment).strip()
-            # Comment only
-            case (str(cat_key), str(task), *comment) if (
-                not is_float(cat_key) and task.lower() not in self.task_list.keys()
-            ):
-                new_comment: str = (
-                    cat_key + " " + task + " " + " ".join(comment)
-                ).strip()
-                if new_comment:
-                    new_entry_arguments["comment"] = new_comment
-            case comment:
-                new_entry_arguments["comment"] = " ".join(comment).strip()
-                #  raise ValueError("Invalid arguments for time entry")
-
-        return new_entry_arguments
-
-    def scale_time_entries(self, target_total) -> None:
-        """Scale time entries by weighted average to sum to a target total duration."""
-        unscaled_total: float = sum([entry.duration for entry in self.time_entries])
-        scale_amount: float = target_total - unscaled_total
-        if scale_amount == 0:
-            return None
-        if unscaled_total == 0:
-            print("No entries to scale / cannot scale from zero.")
-            return None
-
-        print(f"Scaling from {unscaled_total} hours to {target_total} hours.")
-        for entry in self.time_entries:
-            entry.duration = (
-                entry.duration + scale_amount * entry.duration / unscaled_total
-            )
-
-    def copy_output(self) -> None:
-        """Copy output to clipboard."""
-        import pyperclip
-
-        output_str: str = ""
-        for entry in self.time_entries:
-            output_str += entry.tsv_str + "\n"
-
-        pyperclip.copy(output_str.strip())
-        print("TSV Output copied to clipboard.")
-
-    def undo_last(self) -> None:
-        """Undo last entry."""
-        self.time_entries = self.time_entries[:-1]
-
-    def clear(self) -> None:
-        """Delete all entered data."""
-        self.time_entries = []
-
     def help_msg(self, command=None):
         """Display this help message. Type help <command> for detail."""
         if command:
@@ -423,17 +263,10 @@ class ConsoleSession:
     def total_duration(self) -> float:
         return round(sum([entry.duration for entry in self.time_entries]), 2)
 
-    def list_categories_and_tasks(self):
-        """Display available category & account codes."""
-        for dictionary, name in [
-            (self.task_list, "TASKS"),
-            (self.category_list, "CATEGORIES"),
-        ]:  # pragma: no cover
-            disp_dict(dictionary, name)
-            print()
-
 
 class TimeEntry:
+    """Class to capture data for time entries"""
+
     def __init__(
         self,
         session: ConsoleSession,
@@ -444,15 +277,17 @@ class TimeEntry:
         date: datetime.date = datetime.date.today(),
     ) -> None:
         self.duration: float = duration
-        self.category = session.default_category if category is None else category
-        self.task = session.default_task if task is None else task
+        self.category = (
+            session.config.default_category if category is None else category
+        )
+        self.task = session.config.default_task if task is None else task
         self.comment: str = comment
         self.date: datetime.date = date
 
         self.timestamp: datetime.datetime = datetime.datetime.today()
         self.date_str: str = self.date.isoformat()
-        self.cat_str = session.category_list[self.category]
-        self.tsk_str = session.task_list[self.task.lower()]
+        self.cat_str = session.config.category_list[self.category]
+        self.tsk_str = session.config.task_list[self.task.lower()]
 
     def __repr__(self):
         return f"{self.date_str},{self.duration},{self.task},{self.category}"
@@ -492,19 +327,34 @@ class TimeEntry:
         return self_str.strip()
 
 
-def set_date(console, new_date: datetime.date = datetime.date.today()) -> None:
-    """Set the date for time entries.
+#####################
+# CONSOLE FUNCTIONS #
+#####################
+def clear_entries(console) -> None:
+    """Delete all entered data."""
+    console.time_entries = []
 
-    Enter 'date' with no arguments to set date to today.
-    Enter 'date -<n>' where n is an integer to set date n days back
-        for example 'date -1' will set it to yesterday.
-    Enter 'date yyyy-mm-dd' to set to any custom date.
-    Dates must not be in the future.
-    """
-    if not isinstance(new_date, datetime.date):
-        raise TypeError("Wrong argument passed to set_date")
-    console.date = new_date
-    print(f"Date set to {new_date.isoformat()}")
+
+def copy_output(console) -> None:
+    """Copy output to clipboard."""
+    import pyperclip
+
+    output_str: str = ""
+    for entry in console.time_entries:
+        output_str += entry.tsv_str + "\n"
+
+    pyperclip.copy(output_str.strip())
+    print("TSV Output copied to clipboard.")
+
+
+def list_categories_and_tasks(console):
+    """Display available category & account codes."""
+    for dictionary, name in [
+        (console.config.task_list, "TASKS"),
+        (console.config.category_list, "CATEGORIES"),
+    ]:  # pragma: no cover
+        disp_dict(dictionary, name)
+        print()
 
 
 def preview_output(console: ConsoleSession) -> None:
@@ -524,143 +374,39 @@ def preview_output(console: ConsoleSession) -> None:
     print(Style.NORMAL + Fore.RESET, end="")
 
 
-def initialize_db(
-    database_file: str = TITR_DB, test_flag: bool = False
-) -> sqlite3.Connection:
-    """Write the sessions time entries to a database."""
-    db_connection = sqlite3.connect(database_file)
-    cursor = db_connection.cursor()
+def scale_time_entries(console, target_total) -> None:
+    """Scale time entries by weighted average to sum to a target total duration."""
+    unscaled_total: float = sum([entry.duration for entry in console.time_entries])
+    scale_amount: float = target_total - unscaled_total
+    if scale_amount == 0:
+        return None
+    if unscaled_total == 0:
+        print("No entries to scale / cannot scale from zero.")
+        return None
 
-    # Create time log table
-    time_log_table = """--sql
-        CREATE TABLE IF NOT EXISTS time_log(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date DATE,
-            duration FLOAT,
-            category_id INT,
-            task_id INT,
-            session_id INT,
-            comment TEXT
-        )
-    """
-    # Create category table
-    category_table = """--sql
-        CREATE TABLE IF NOT EXISTS categories(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT
-        )
-    """
-    # Create task table
-    task_table = """--sql
-        CREATE TABLE IF NOT EXISTS tasks(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            key TEXT,
-            name TEXT
-        )
-    """
-    # Create task table
-    session_table = """--sql
-        CREATE TABLE IF NOT EXISTS sessions(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            titr_version TEXT,
-            user TEXT,
-            platform TEXT,
-            ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """
-
-    for table in [time_log_table, category_table, task_table, session_table]:
-        cursor.execute(table)
-
-    #  if not test_flag:  # pragma: no cover
-    db_connection.commit()
-
-    return db_connection
-
-
-def db_write_time_log(
-    console: ConsoleSession, db_connection: sqlite3.Connection, session_id: int
-) -> None:
-    """Write time entries from console session to database."""
-    cursor = db_connection.cursor()
-    write_entry = """--sql
-        INSERT INTO time_log (date, duration, category_id, task_id, comment, session_id)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """
-    get_task_id = """--sql
-        SELECT id, key
-        FROM tasks
-        WHERE key = (?)
-    """
+    print(f"Scaling from {unscaled_total} hours to {target_total} hours.")
     for entry in console.time_entries:
-        cursor.execute(get_task_id, [entry.task])
-        task_id = cursor.fetchone()[0]
-        cursor.execute(
-            write_entry,
-            [
-                entry.date,
-                entry.duration,
-                entry.category,
-                task_id,
-                entry.comment,
-                session_id,
-            ],
-        )
-    db_connection.commit()
+        entry.duration = entry.duration + scale_amount * entry.duration / unscaled_total
 
 
-def populate_task_category_lists(
-    console: ConsoleSession,
-    db_connection: sqlite3.Connection,
-) -> None:
-    """Populate the category & task tables in the sqlite db."""
-    write_categories = """--sql
-        REPLACE INTO categories (id, name) VALUES (?, ?)
+def set_date(console, new_date: datetime.date = datetime.date.today()) -> None:
+    """Set the date for time entries.
+
+    Enter 'date' with no arguments to set date to today.
+    Enter 'date -<n>' where n is an integer to set date n days back
+        for example 'date -1' will set it to yesterday.
+    Enter 'date yyyy-mm-dd' to set to any custom date.
+    Dates must not be in the future.
     """
-    write_tasks = """--sql
-        REPLACE INTO tasks (id, key, name) VALUES (?, ?, ?)
-    """
-    cursor = db_connection.cursor()
-    for key, value in console.category_list.items():
-        cursor.execute(write_categories, [key, value])
-
-    task_id = 0
-    for key, value in console.task_list.items():
-        cursor.execute(write_tasks, [task_id, key, value])
-        task_id += 1
-
-    db_connection.commit()
+    if not isinstance(new_date, datetime.date):
+        raise TypeError("Wrong argument passed to set_date")
+    console.date = new_date
+    print(f"Date set to {new_date.isoformat()}")
 
 
-def db_session_metadata(
-    db_connection: sqlite3.Connection, test_flag: bool = False
-) -> int:
-    """Make entry in session table and return the session id."""
-    cursor = db_connection.cursor()
-    new_entry: str = """--sql
-        INSERT INTO sessions (titr_version, user, platform) VALUES (?, ?, ?)
-    """
-    platform: str = sys.platform
-    if "linux" in platform:
-        user = os.uname().nodename
-    elif "win" in platform:
-        user = os.getlogin()
-    else:
-        user = None
-
-    cursor.execute(new_entry, [__version__, user, platform])
-    #  if not test_flag:  # pragma: no cover
-    db_connection.commit()
-
-    get_session_id: str = """--sql
-        SELECT MAX(id) from sessions
-    """
-    cursor.execute(get_session_id)
-    session_id = cursor.fetchone()[0]
-    #  if not test_flag:  # pragma: no cover
-    #  db_connection.close()
-
-    return session_id
+def undo_last(console) -> None:
+    """Undo last entry."""
+    console.time_entries = console.time_entries[:-1]
 
 
 def write_db(console: ConsoleSession) -> None:  # pragma: no cover
@@ -669,13 +415,13 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     if len(console.time_entries) == 0:
         raise ValueError("Nothing to commit. Get back to work.")
     # Establish a connection, and initialize the database if not already done.
-    db_connection: sqlite3.Connection = initialize_db()
+    db_connection: sqlite3.Connection = db_initialize()
 
     # Populate the task and category lists in the database from the titr.cfg
     # File, which has already been loaded into the console session
     # TODO: Store task & category lists exclusively in the database
     # modifiable through the program
-    populate_task_category_lists(console, db_connection)
+    db_populate_task_category_lists(console, db_connection)
 
     # Write metadata about the current session, and get the session id
     session_id = db_session_metadata(db_connection)
@@ -687,8 +433,167 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     db_connection.close()
 
     # Clear all time entries so they aren't entered a second time
-    console.time_entries = []
+    clear_entries(console)
     print(f"Commited entries to {TITR_DB}.")
+
+
+#####################
+# PRIVATE FUNCTIONS #
+#####################
+# TODO: Rename with leading underscore
+def _add_entry(console, user_input: str, outlook_item=None) -> None:
+    """Add a new entry to the time log.
+
+    Format is <duration> [<category> <task> <comment>]
+    There is no need to type 'add'
+    Duration is required and must be able to be converted to float
+    Type 'ls accounts' and 'ls categories' for available accounts & categories
+    Category must be an integer; task must be a single character
+    Any text after the task is considered a comment.
+    All arguments other than duration are optional.
+
+    Some examples:
+    1 2 i this is one hour in category 2 in task 'i'
+    1 this is one hour on default task & category
+    .5 i this is one hour in task 'i'
+    1 2 this is one hour in category 2
+    2.1     (2.1 hrs, default category & task, no comment)
+    """
+    entry_args: Optional[Dict[Any, Any]] = _parse_time_entry(console, user_input)
+    if outlook_item:
+        if not entry_args:
+            entry_args = dict()
+        for index, key in enumerate(["duration", "category", "comment"]):
+            if key not in entry_args.keys():
+                entry_args[key] = outlook_item[index]
+    if entry_args and entry_args["duration"] != 0:
+        console.time_entries.append(TimeEntry(console, date=console.date, **entry_args))
+        print(console.time_entries[-1])
+
+
+def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]:
+    """Parse a user input into a time entry.
+
+    Returns None for blank entry
+    Else returns a dict to be passed to a new TimeEntry"""
+    if raw_input == "":
+        return None
+    user_input: List[str] = raw_input.split(" ")
+    duration = float(user_input[0])
+    if duration > console.config.max_duration:
+        raise ValueError("You're working too much.")
+    if duration < 0:
+        raise ValueError("You can't unwork.")
+    time_entry_arguments: dict = {"duration": duration}
+    entry_args: List[str] = user_input[1:]
+    match entry_args:
+        # No arguments, add entry with all defaults
+        case ([] | "" | None):
+            pass
+        # All arguments including comment
+        case (str(cat_key), str(task), *comment) if (
+            is_float(cat_key)
+            and int(cat_key) in console.config.category_list.keys()
+            and task.lower() in console.config.task_list.keys()
+        ):
+            time_entry_arguments["category"] = int(cat_key)
+            time_entry_arguments["task"] = task
+            if comment:
+                time_entry_arguments["comment"] = " ".join(comment).strip()
+        # Category argument, no task argument
+        case (str(cat_key), *comment) if (
+            is_float(cat_key) and int(cat_key) in console.config.category_list.keys()
+        ):
+            time_entry_arguments["category"] = int(cat_key)
+            if comment:
+                time_entry_arguments["comment"] = " ".join(comment).strip()
+        # task argument, no category argument
+        case (str(task), *comment) if (
+            not is_float(task) and task.lower() in console.config.task_list.keys()
+        ):
+            time_entry_arguments["task"] = task
+            if comment:
+                time_entry_arguments["comment"] = " ".join(comment).strip()
+        # Comment only
+        case (str(cat_key), str(task), *comment) if (
+            not is_float(cat_key)
+            and task.lower() not in console.config.task_list.keys()
+        ):
+            new_comment: str = (cat_key + " " + task + " " + " ".join(comment)).strip()
+            if new_comment:
+                time_entry_arguments["comment"] = new_comment
+        case comment:
+            time_entry_arguments["comment"] = " ".join(comment).strip()
+            #  raise ValueError("Invalid arguments for time entry")
+
+    return time_entry_arguments
+
+
+def load_config(config_file=CONFIG_FILE) -> Config:
+    """Load and validate configuration options."""
+    # look for a config file in the working directory
+    # if it doesn't exist, create it with some default options
+    if not os.path.isfile(config_file):
+        config_file = create_default_config()
+    config = Config()
+    parser = configparser.ConfigParser()
+    parser.read(config_file)
+    for key in parser["categories"]:
+        try:
+            cat_key = int(key)
+        except ValueError as err:
+            print(f"Warning: Skipped category key {key} in {config_file}: {err}")
+            continue
+        config.category_list[cat_key] = parser["categories"][key]
+    for key in parser["tasks"]:
+        if len(key) > 1:
+            print(f"Warning: Skipped task key {key} in {config_file}: len > 1.")
+            continue
+        if key.isdigit():
+            print(f"Warning: Skipped task key {key} in {config_file}: Digit")
+            continue
+        config.task_list[key] = parser["tasks"][key]
+
+    config.default_task = parser["general_options"]["default_task"]
+    if config.default_task not in config.task_list.keys():
+        print(
+            "Warning: Default tasks '",
+            config.default_task,
+            "' not found in ",
+            config_file,
+        )
+        config.default_task = list(config.task_list.keys())[0]
+
+    # TODO: Error handling for default category as not an int
+    config.default_category = int(parser["general_options"]["default_category"])
+    if config.default_category not in config.category_list.keys():
+        config.default_category = int(list(config.category_list.keys())[0])
+        print(
+            "Warning: Default category '",
+            config.default_category,
+            "'not found in ",
+            config_file,
+        )
+
+    # TODO: Error handling
+    config.max_duration = float(parser["general_options"]["max_entry_duration"])
+
+    config.outlook_account = parser["outlook_options"]["email"]
+    config.calendar_name = parser["outlook_options"]["calendar_name"]
+    config.skip_event_names = [
+        event.strip()
+        for event in parser["outlook_options"]["skip_event_names"].split(",")
+    ]
+    # TODO: Error handling
+    config.skip_event_status = [
+        int(status)
+        for status in parser["outlook_options"]["skip_event_status"].split(",")
+    ]
+    config.skip_all_day_events = parser.getboolean(
+        "outlook_options", "skip_all_day_events"
+    )
+
+    return config
 
 
 def get_outlook_items(
@@ -772,18 +677,146 @@ def parse_date(datestr: str) -> datetime.date:
     return new_date
 
 
-def main() -> None:
-    print("Welcome to titr.")
-    cs = ConsoleSession()
-    while True:  # pragma: no cover
-        try:
-            cs.get_user_input()
-        except NotImplementedError:
-            print("not implemented")
-        except (ValueError, TypeError, KeyError) as err:
-            print(f"Error: {err}")
-        except ImportError as err:
-            print(err)
+######################
+# DATABASE FUNCTIONS #
+######################
+def db_initialize(
+    database_file: str = TITR_DB, test_flag: bool = False
+) -> sqlite3.Connection:
+    """Write the sessions time entries to a database."""
+    db_connection = sqlite3.connect(database_file)
+    cursor = db_connection.cursor()
+
+    # Create time log table
+    time_log_table = """--sql
+        CREATE TABLE IF NOT EXISTS time_log(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date DATE,
+            duration FLOAT,
+            category_id INT,
+            task_id INT,
+            session_id INT,
+            comment TEXT
+        )
+    """
+    # Create category table
+    category_table = """--sql
+        CREATE TABLE IF NOT EXISTS categories(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT
+        )
+    """
+    # Create task table
+    task_table = """--sql
+        CREATE TABLE IF NOT EXISTS tasks(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT,
+            name TEXT
+        )
+    """
+    # Create task table
+    session_table = """--sql
+        CREATE TABLE IF NOT EXISTS sessions(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            titr_version TEXT,
+            user TEXT,
+            platform TEXT,
+            ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """
+
+    for table in [time_log_table, category_table, task_table, session_table]:
+        cursor.execute(table)
+
+    #  if not test_flag:  # pragma: no cover
+    db_connection.commit()
+
+    return db_connection
+
+
+def db_populate_task_category_lists(
+    console: ConsoleSession,
+    db_connection: sqlite3.Connection,
+) -> None:
+    """Populate the category & task tables in the sqlite db."""
+    write_categories = """--sql
+        REPLACE INTO categories (id, name) VALUES (?, ?)
+    """
+    write_tasks = """--sql
+        REPLACE INTO tasks (id, key, name) VALUES (?, ?, ?)
+    """
+    cursor = db_connection.cursor()
+    for key, value in console.config.category_list.items():
+        cursor.execute(write_categories, [key, value])
+
+    task_id = 0
+    for key, value in console.config.task_list.items():
+        cursor.execute(write_tasks, [task_id, key, value])
+        task_id += 1
+
+    db_connection.commit()
+
+
+def db_session_metadata(
+    db_connection: sqlite3.Connection, test_flag: bool = False
+) -> int:
+    """Make entry in session table and return the session id."""
+    cursor = db_connection.cursor()
+    new_entry: str = """--sql
+        INSERT INTO sessions (titr_version, user, platform) VALUES (?, ?, ?)
+    """
+    platform: str = sys.platform
+    if "linux" in platform:
+        user = os.uname().nodename
+    elif "win" in platform:
+        user = os.getlogin()
+    else:
+        user = None
+
+    cursor.execute(new_entry, [__version__, user, platform])
+    #  if not test_flag:  # pragma: no cover
+    db_connection.commit()
+
+    get_session_id: str = """--sql
+        SELECT MAX(id) from sessions
+    """
+    cursor.execute(get_session_id)
+    session_id = cursor.fetchone()[0]
+    #  if not test_flag:  # pragma: no cover
+    #  db_connection.close()
+
+    return session_id
+
+
+def db_write_time_log(
+    console: ConsoleSession, db_connection: sqlite3.Connection, session_id: int
+) -> None:
+    """Write time entries from console session to database."""
+    cursor = db_connection.cursor()
+    write_entry = """--sql
+        INSERT INTO time_log (date, duration, category_id, task_id, comment, session_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """
+    get_task_id = """--sql
+        SELECT id, key
+        FROM tasks
+        WHERE key = (?)
+    """
+    for entry in console.time_entries:
+        cursor.execute(get_task_id, [entry.task])
+        task_id = cursor.fetchone()[0]
+        cursor.execute(
+            write_entry,
+            [
+                entry.date,
+                entry.duration,
+                entry.category,
+                task_id,
+                entry.comment,
+                session_id,
+            ],
+        )
+    db_connection.commit()
 
 
 if __name__ == "__main__":

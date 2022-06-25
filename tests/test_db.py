@@ -6,9 +6,9 @@ import sqlite3
 
 from dataclasses import dataclass
 from titr import (
-    initialize_db,
+    db_initialize,
     db_session_metadata,
-    populate_task_category_lists,
+    db_populate_task_category_lists,
     db_write_time_log,
     TimeEntry,
 )
@@ -23,7 +23,7 @@ def db_connection(monkeypatch):
     # Remove old database file if it exists
     if TEST_DB != ":memory:":
         os.remove(TEST_DB)
-    connection = initialize_db(TEST_DB, test_flag=True)
+    connection = db_initialize(TEST_DB, test_flag=True)
     #  connection = sqlite3.connect(TEST_DB, detect_types=sqlite3.PARSE_DECLTYPES)
     yield connection
     connection.commit()
@@ -45,7 +45,7 @@ def test_session_metadata(db_connection, monkeypatch):
 
 
 def test_populate_tables(console, db_connection):
-    populate_task_category_lists(console, db_connection)
+    db_populate_task_category_lists(console, db_connection)
     cursor = db_connection.cursor()
 
     # Check category table columns
@@ -68,7 +68,7 @@ def test_populate_tables(console, db_connection):
 
 
 def test_write_time_log(console, db_connection):
-    populate_task_category_lists(console, db_connection)
+    db_populate_task_category_lists(console, db_connection)
     console.time_entries.append(
         TimeEntry(console, duration=1, comment="test", task="t", category=9)
     )
