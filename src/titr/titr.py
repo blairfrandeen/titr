@@ -74,12 +74,12 @@ class ConsoleSession:
             "clear": (["clear"], self.clear),
             "clip": (["clip"], self.copy_output),
             "commit": (["c", "commit"], write_db),  # not implemented
-            "date": (["d", "date"], self.set_date),
+            "date": (["d", "date"], set_date),
             "help": (["h", "help"], self.help_msg),
             "list": (["ls", "list"], self.list_categories_and_tasks),
             "outlook": (["o", "outlook"], self.import_from_outlook),
             "null_cmd": ([""], None),
-            "preview": (["p", "preview"], self.preview_output),
+            "preview": (["p", "preview"], preview_output),
             "quit": (["q", "quit"], exit),
             "scale": (["s", "scale"], self.scale_time_entries),
             "undo": (["z", "undo"], self.undo_last),
@@ -87,6 +87,59 @@ class ConsoleSession:
         self.date = datetime.date.today()
         exit.__doc__ = "Quit"
         self.load_config()
+
+    def get_user_input(self, outlook_item=None, input_str: str = "> ") -> Optional[int]:
+        user_input: str = input(input_str)
+        match user_input.split(" "):
+            case [str(duration), *_] if is_float(duration):
+                self._add_entry(user_input, outlook_item)
+                return 1
+            case [alias, *_] if self._is_alias(alias, "add"):
+                # self.command_list['help'][1](command='add')
+                self.help_msg(command="add")
+            case [alias, *_] if self._is_alias(alias, "clear"):
+                self.clear()
+            case [alias, *_] if self._is_alias(alias, "clip"):
+                self.copy_output()
+            case [alias, *_] if self._is_alias(alias, "commit"):
+                write_db(self)
+            case [alias] if self._is_alias(alias, "date"):
+                set_date(self)
+            case [alias, str(date_input)] if self._is_alias(alias, "date"):
+                new_date = parse_date(datestr=date_input)
+                set_date(self, new_date)
+            case [alias, *_] if self._is_alias(alias, "list"):
+                self.list_categories_and_tasks()
+            case [alias] if self._is_alias(alias, "outlook"):
+                self.import_from_outlook()
+            case [alias, *_] if self._is_alias(alias, "preview"):
+                preview_output(self)
+            case [alias, str(scale_target)] if self._is_alias(alias, "scale"):
+                if is_float(scale_target):
+                    self.scale_time_entries(float(scale_target))
+                else:
+                    raise TypeError("Invalid argument, scale_target must be float")
+            case [alias, *_] if self._is_alias(alias, "undo"):
+                self.undo_last()
+            case [alias, *_] if self._is_alias(alias, "quit"):
+                if self.command_list["quit"] is not None:
+                    self.command_list["quit"][1]()
+                return 0
+            case [alias, str(command)] if self._is_alias(alias, "help"):
+                for name, cmd in self.command_list.items():
+                    if self._is_alias(command, name):
+                        self.help_msg(command=name)
+                        return None
+                raise ValueError("Command not found. Type 'help' for list.")
+            case [alias] if self._is_alias(alias, "help"):
+                self.help_msg()
+            case [alias] if self._is_alias(alias, "null_cmd"):  # pragma: no cover
+                self._add_entry(user_input, outlook_item)
+                return 1
+            case _:
+                raise ValueError(f'Invalid input: "{user_input}"')
+
+        return None
 
     def load_config(self, config_file=CONFIG_FILE):
         """Load and validate configuration options."""
@@ -152,59 +205,6 @@ class ConsoleSession:
         self.skip_all_day_events = config.getboolean(
             "outlook_options", "skip_all_day_events"
         )
-
-    def get_user_input(self, outlook_item=None, input_str: str = "> ") -> Optional[int]:
-        user_input: str = input(input_str)
-        match user_input.split(" "):
-            case [str(duration), *_] if is_float(duration):
-                self._add_entry(user_input, outlook_item)
-                return 1
-            case [alias, *_] if self._is_alias(alias, "add"):
-                # self.command_list['help'][1](command='add')
-                self.help_msg(command="add")
-            case [alias, *_] if self._is_alias(alias, "clear"):
-                self.clear()
-            case [alias, *_] if self._is_alias(alias, "clip"):
-                self.copy_output()
-            case [alias, *_] if self._is_alias(alias, "commit"):
-                write_db(self)
-            case [alias] if self._is_alias(alias, "date"):
-                self.set_date()
-            case [alias, str(date_input)] if self._is_alias(alias, "date"):
-                new_date = parse_date(datestr=date_input)
-                self.set_date(new_date)
-            case [alias, *_] if self._is_alias(alias, "list"):
-                self.list_categories_and_tasks()
-            case [alias] if self._is_alias(alias, "outlook"):
-                self.import_from_outlook()
-            case [alias, *_] if self._is_alias(alias, "preview"):
-                self.preview_output()
-            case [alias, str(scale_target)] if self._is_alias(alias, "scale"):
-                if is_float(scale_target):
-                    self.scale_time_entries(float(scale_target))
-                else:
-                    raise TypeError("Invalid argument, scale_target must be float")
-            case [alias, *_] if self._is_alias(alias, "undo"):
-                self.undo_last()
-            case [alias, *_] if self._is_alias(alias, "quit"):
-                if self.command_list["quit"] is not None:
-                    self.command_list["quit"][1]()
-                return 0
-            case [alias, str(command)] if self._is_alias(alias, "help"):
-                for name, cmd in self.command_list.items():
-                    if self._is_alias(command, name):
-                        self.help_msg(command=name)
-                        return None
-                raise ValueError("Command not found. Type 'help' for list.")
-            case [alias] if self._is_alias(alias, "help"):
-                self.help_msg()
-            case [alias] if self._is_alias(alias, "null_cmd"):  # pragma: no cover
-                self._add_entry(user_input, outlook_item)
-                return 1
-            case _:
-                raise ValueError(f'Invalid input: "{user_input}"')
-
-        return None
 
     def _add_entry(self, user_input: str, outlook_item=None) -> None:
         """Add a new entry to the time log.
@@ -314,20 +314,6 @@ class ConsoleSession:
 
             self.command_list[cmd] = self.default_commands[cmd]
 
-    def set_date(self, new_date: datetime.date = datetime.date.today()) -> None:
-        """Set the date for time entries.
-
-        Enter 'date' with no arguments to set date to today.
-        Enter 'date -<n>' where n is an integer to set date n days back
-            for example 'date -1' will set it to yesterday.
-        Enter 'date yyyy-mm-dd' to set to any custom date.
-        Dates must not be in the future.
-        """
-        if not isinstance(new_date, datetime.date):
-            raise TypeError("Wrong argument passed to set_date")
-        self.date = new_date
-        print(f"Date set to {new_date.isoformat()}")
-
     def _parse_new_entry(self, raw_input: str) -> Optional[dict]:
         """Parse a user input into a time entry.
 
@@ -412,24 +398,6 @@ class ConsoleSession:
 
         pyperclip.copy(output_str.strip())
         print("TSV Output copied to clipboard.")
-
-    def preview_output(self) -> None:
-        """Preview output."""
-        print(Style.BRIGHT, end="")
-        for index, heading in enumerate(
-            ["DATE", "HOURS", "TASK", "CATEGORY", "COMMENT"]
-        ):
-            print(
-                "{heading:{wd}}".format(heading=heading, wd=COLUMN_WIDTHS[index]),
-                end="",
-            )
-        print(Style.NORMAL)
-        for entry in self.time_entries:
-            print(entry)
-        print(Style.BRIGHT + Fore.GREEN, end="")
-        print("{s:{wd}}".format(s="TOTAL", wd=COLUMN_WIDTHS[0]), end="")
-        print("{d:<{wd}.2f}".format(d=self.total_duration, wd=COLUMN_WIDTHS[1]))
-        print(Style.NORMAL + Fore.RESET, end="")
 
     def undo_last(self) -> None:
         """Undo last entry."""
@@ -522,6 +490,38 @@ class TimeEntry:
             )
 
         return self_str.strip()
+
+
+def set_date(console, new_date: datetime.date = datetime.date.today()) -> None:
+    """Set the date for time entries.
+
+    Enter 'date' with no arguments to set date to today.
+    Enter 'date -<n>' where n is an integer to set date n days back
+        for example 'date -1' will set it to yesterday.
+    Enter 'date yyyy-mm-dd' to set to any custom date.
+    Dates must not be in the future.
+    """
+    if not isinstance(new_date, datetime.date):
+        raise TypeError("Wrong argument passed to set_date")
+    console.date = new_date
+    print(f"Date set to {new_date.isoformat()}")
+
+
+def preview_output(console: ConsoleSession) -> None:
+    """Preview output."""
+    print(Style.BRIGHT, end="")
+    for index, heading in enumerate(["DATE", "HOURS", "TASK", "CATEGORY", "COMMENT"]):
+        print(
+            "{heading:{wd}}".format(heading=heading, wd=COLUMN_WIDTHS[index]),
+            end="",
+        )
+    print(Style.NORMAL)
+    for entry in console.time_entries:
+        print(entry)
+    print(Style.BRIGHT + Fore.GREEN, end="")
+    print("{s:{wd}}".format(s="TOTAL", wd=COLUMN_WIDTHS[0]), end="")
+    print("{d:<{wd}.2f}".format(d=console.total_duration, wd=COLUMN_WIDTHS[1]))
+    print(Style.NORMAL + Fore.RESET, end="")
 
 
 def initialize_db(

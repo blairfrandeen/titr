@@ -162,7 +162,7 @@ def test_scale_duration(console, capsys):
 
 def test_preview(console, time_entry, capsys):
     console.time_entries.append(time_entry)
-    console.preview_output()
+    titr.preview_output(console)
     captured = capsys.readouterr()
     assert "test entry" in captured.out
     assert len(captured.out.split("\n")) == 4
@@ -354,14 +354,14 @@ def test_help_msg(console, monkeypatch, capsys):
 
 
 def test_set_date(console, monkeypatch):
-    console.set_date()
+    titr.set_date(console)
     assert console.date == datetime.date.today()
 
-    console.set_date(datetime.date.fromisoformat("2022-06-17"))
+    titr.set_date(console, datetime.date.fromisoformat("2022-06-17"))
     assert console.date == datetime.date(2022, 6, 17)
 
     with pytest.raises(TypeError):
-        console.set_date("1941-12-07")
+        titr.set_date(console, "1941-12-07")
 
 
 invalid_commands = [
@@ -385,9 +385,9 @@ def test_get_user_input(console, monkeypatch, capsys):
         "clear": ["clear"],
         "copy_output": ["clip"],
         #  'commit':   ['c', 'commit'],
-        "set_date": ["d", "date", "D", "d -1", "date 2013-08-05"],
+        #  "set_date": ["d", "date", "D", "d -1", "date 2013-08-05"],
         "import_from_outlook": ["O", "outlook"],
-        "preview_output": ["p", "preview"],
+        #  "preview_output": ["p", "preview"],
         "list_categories_and_tasks": ["ls", "list"],
         "undo_last": ["z", "undo"],
         "scale_time_entries": ["s 9", "scale 10"],
