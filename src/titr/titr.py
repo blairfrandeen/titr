@@ -9,6 +9,7 @@ https://github.com/blairfrandeen/titr
 
 import configparser
 import datetime
+import functools
 import os
 import sqlite3
 import sys
@@ -21,20 +22,44 @@ CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 #  TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 TITR_DB: str = "titr_test.db"
 COLUMN_WIDTHS = [13, 8, 12, 25, 38]
+NEW_CONSOLE = False
 
 
 def main() -> None:
     print("Welcome to titr.")
+    cmd_dict = dict()
     cs = ConsoleSession()
-    while True:  # pragma: no cover
-        try:
-            cs.get_user_input()
-        except NotImplementedError:
-            print("not implemented")
-        except (ValueError, TypeError, KeyError) as err:
-            print(f"Error: {err}")
-        except ImportError as err:
-            print(err)
+    if NEW_CONSOLE:
+        for cmd in CONSOLE_COMMANDS:
+            print(cmd)
+            for alias in cmd.aliases:
+                cmd_dict[alias] = cmd.function
+        while True:
+            user_input = input(" >>")
+            if user_input == "q":
+                break
+            user_cmd, *args = user_input.split(" ")
+            kwargs = dict()
+            for arg in args:
+                if "=" in arg:
+                    key, value = arg.split("=")
+                    kwargs[key] = value
+                    args.remove(arg)
+            if user_cmd in cmd_dict.keys():
+                cmd_dict[user_cmd](cs, *args, **kwargs)
+            else:
+                print("bad command")
+
+    else:
+        while True:  # pragma: no cover
+            try:
+                cs.get_user_input()
+            except NotImplementedError:
+                print("not implemented")
+            except (ValueError, TypeError, KeyError) as err:
+                print(f"Error: {err}")
+            except ImportError as err:
+                print(err)
 
 
 ####################
@@ -87,6 +112,44 @@ def create_default_config():
 ###########
 # CLASSES #
 ###########
+class _ConsoleCommand(object):
+    def __init__(self, function: Callable, aliases: list[str] = None, name: str = None):
+        #  functools.update_wrapper(self, function)
+        self.name: str = function.__name__ if not name else name
+        self.function: Callable = function
+        self.aliases: list[str] = [self.name]
+        if aliases:
+            for alias in aliases:
+                self.aliases.append(alias)
+        self.enabled: bool = True
+
+        CONSOLE_COMMANDS.append(self)
+
+    def __call__(self, *args, **kwargs):
+        return self.function(*args, **kwargs)
+
+    def __str__(self):
+        cmd_str = ""
+        for alias in self.aliases:
+            cmd_str = cmd_str + alias + ", "
+        cmd_str = cmd_str[:-2]  # remove the last comma and space
+        cmd_str = cmd_str + "\t\t" + self.function.__doc__.split("\n")[0]
+        return cmd_str
+
+
+def ConsoleCommand(
+    function: Callable = None, aliases: list[str] = None, name: str = None
+):
+    if function:
+        return _ConsoleCommand(function)
+    else:
+
+        def _wrapper(function):
+            return _ConsoleCommand(function, aliases, name)
+
+        return _wrapper
+
+
 @dataclass
 class Config:
     category_list: dict = field(default_factory=dict)
@@ -127,7 +190,7 @@ class ConsoleSession:
             case [alias, *_] if self._is_alias(alias, "clear"):
                 clear_entries(self)
             case [alias, *_] if self._is_alias(alias, "clip"):
-                copy_output()
+                copy_output(self)
             case [alias, *_] if self._is_alias(alias, "commit"):
                 write_db(self)
             case [alias] if self._is_alias(alias, "date"):
@@ -330,11 +393,16 @@ class TimeEntry:
 #####################
 # CONSOLE FUNCTIONS #
 #####################
+CONSOLE_COMMANDS: List[ConsoleCommand] = []
+
+
+@ConsoleCommand(name="clear")
 def clear_entries(console) -> None:
     """Delete all entered data."""
     console.time_entries = []
 
 
+@ConsoleCommand(name="clip", aliases=["copy"])
 def copy_output(console) -> None:
     """Copy output to clipboard."""
     import pyperclip
@@ -347,6 +415,7 @@ def copy_output(console) -> None:
     print("TSV Output copied to clipboard.")
 
 
+@ConsoleCommand(name="list", aliases=["ls"])
 def list_categories_and_tasks(console):
     """Display available category & account codes."""
     for dictionary, name in [
@@ -357,6 +426,7 @@ def list_categories_and_tasks(console):
         print()
 
 
+@ConsoleCommand(name="preview", aliases=["p"])
 def preview_output(console: ConsoleSession) -> None:
     """Preview output."""
     print(Style.BRIGHT, end="")
@@ -374,6 +444,7 @@ def preview_output(console: ConsoleSession) -> None:
     print(Style.NORMAL + Fore.RESET, end="")
 
 
+@ConsoleCommand(name="scale", aliases=["s"])
 def scale_time_entries(console, target_total) -> None:
     """Scale time entries by weighted average to sum to a target total duration."""
     unscaled_total: float = sum([entry.duration for entry in console.time_entries])
@@ -389,6 +460,7 @@ def scale_time_entries(console, target_total) -> None:
         entry.duration = entry.duration + scale_amount * entry.duration / unscaled_total
 
 
+@ConsoleCommand(name="date", aliases=["d"])
 def set_date(console, new_date: datetime.date = datetime.date.today()) -> None:
     """Set the date for time entries.
 
@@ -404,11 +476,13 @@ def set_date(console, new_date: datetime.date = datetime.date.today()) -> None:
     print(f"Date set to {new_date.isoformat()}")
 
 
+@ConsoleCommand(name="undo", aliases=["u", "z"])
 def undo_last(console) -> None:
     """Undo last entry."""
     console.time_entries = console.time_entries[:-1]
 
 
+@ConsoleCommand(name="write", aliases=["c", "commit"])
 def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     """Write time entries to the database."""
 
