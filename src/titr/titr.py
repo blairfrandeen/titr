@@ -14,15 +14,23 @@ import os
 import sqlite3
 import sys
 from typing import Optional, Tuple, Dict, List, Callable, Any
+
 from __init__ import __version__
 from colorama import Fore, Style
+from datum_console import (
+    ConsoleCommand,
+    ConsolePattern,
+    get_input,
+    disable_command,
+    enable_command,
+)
 from dataclasses import dataclass, field
 
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 #  TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 TITR_DB: str = "titr_test.db"
 COLUMN_WIDTHS = [13, 8, 12, 25, 38]
-NEW_CONSOLE = False
+NEW_CONSOLE = True
 
 
 def main() -> None:
@@ -30,26 +38,7 @@ def main() -> None:
     cmd_dict = dict()
     cs = ConsoleSession()
     if NEW_CONSOLE:
-        for cmd in CONSOLE_COMMANDS:
-            print(cmd)
-            for alias in cmd.aliases:
-                cmd_dict[alias] = cmd.function
-        while True:
-            user_input = input(" >>")
-            if user_input == "q":
-                break
-            user_cmd, *args = user_input.split(" ")
-            kwargs = dict()
-            for arg in args:
-                if "=" in arg:
-                    key, value = arg.split("=")
-                    kwargs[key] = value
-                    args.remove(arg)
-            if user_cmd in cmd_dict.keys():
-                cmd_dict[user_cmd](cs, *args, **kwargs)
-            else:
-                print("bad command")
-
+        get_input(session_args=cs)
     else:
         while True:  # pragma: no cover
             try:
@@ -60,6 +49,24 @@ def main() -> None:
                 print(f"Error: {err}")
             except ImportError as err:
                 print(err)
+
+
+@ConsoleCommand(hidden=True)
+def oltest(cs):
+    """Test"""
+    disabled_commands = "oltest date write quit".split(" ")
+    for cmd in disabled_commands:
+        disable_command(cmd)
+    for item in ["Test 1: ", "Test 2: ", "Test 3: "]:
+        command = get_input(
+            session_args=cs,
+            break_commands=["add_entry", "null_cmd", "quit"],
+            prompt=item,
+        )
+        if command.name == "quit":
+            break
+    for cmd in disabled_commands:
+        enable_command(cmd)
 
 
 ####################
@@ -112,44 +119,6 @@ def create_default_config():
 ###########
 # CLASSES #
 ###########
-class _ConsoleCommand(object):
-    def __init__(self, function: Callable, aliases: list[str] = None, name: str = None):
-        #  functools.update_wrapper(self, function)
-        self.name: str = function.__name__ if not name else name
-        self.function: Callable = function
-        self.aliases: list[str] = [self.name]
-        if aliases:
-            for alias in aliases:
-                self.aliases.append(alias)
-        self.enabled: bool = True
-
-        CONSOLE_COMMANDS.append(self)
-
-    def __call__(self, *args, **kwargs):
-        return self.function(*args, **kwargs)
-
-    def __str__(self):
-        cmd_str = ""
-        for alias in self.aliases:
-            cmd_str = cmd_str + alias + ", "
-        cmd_str = cmd_str[:-2]  # remove the last comma and space
-        cmd_str = cmd_str + "\t\t" + self.function.__doc__.split("\n")[0]
-        return cmd_str
-
-
-def ConsoleCommand(
-    function: Callable = None, aliases: list[str] = None, name: str = None
-):
-    if function:
-        return _ConsoleCommand(function)
-    else:
-
-        def _wrapper(function):
-            return _ConsoleCommand(function, aliases, name)
-
-        return _wrapper
-
-
 @dataclass
 class Config:
     category_list: dict = field(default_factory=dict)
@@ -393,7 +362,6 @@ class TimeEntry:
 #####################
 # CONSOLE FUNCTIONS #
 #####################
-CONSOLE_COMMANDS: List[ConsoleCommand] = []
 
 
 @ConsoleCommand(name="clear")
@@ -515,6 +483,13 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
 # PRIVATE FUNCTIONS #
 #####################
 # TODO: Rename with leading underscore
+
+
+def time_entry_pattern(user_input: str) -> bool:
+    return is_float(user_input.split(" ")[0])
+
+
+@ConsolePattern(pattern=time_entry_pattern, name="add_entry")
 def _add_entry(console, user_input: str, outlook_item=None) -> None:
     """Add a new entry to the time log.
 
