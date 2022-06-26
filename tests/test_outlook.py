@@ -4,6 +4,7 @@ import sys
 
 import pytest
 import titr
+from test_titr import console, titr_default_config
 
 if not sys.platform.startswith("win32"):
     pytest.skip(reason="windows only tests", allow_module_level=True)
@@ -181,18 +182,18 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
     monkeypatch.setattr(titr, "get_outlook_items", _mock_get_outlook_items)
     monkeypatch.setattr(console, "_set_outlook_mode", _mock_set_mode)
     monkeypatch.setattr(console, "_set_normal_mode", _mock_set_mode)
-    monkeypatch.setattr(console, "skip_event_names", ["Filtered Event"])
+    console.config.skip_event_names = ['Filtered Event']
 
     def _mock_user_input(**kwargs):
         return 0
 
     monkeypatch.setattr(console, "get_user_input", _mock_user_input)
     with pytest.raises(KeyError):
-        console.import_from_outlook()
+        titr.import_from_outlook(console)
 
     monkeypatch.setattr(titr, "get_outlook_items", lambda *_: mock_appointments)
     monkeypatch.setattr("builtins.input", lambda _: "")
-    console.import_from_outlook()
+    titr.import_from_outlook(console)
     captured = capsys.readouterr()
     for entry in console.time_entries:
         for subject in [

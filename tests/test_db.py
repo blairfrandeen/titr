@@ -37,7 +37,7 @@ class MockUname:
 
 def test_session_metadata(db_connection, monkeypatch):
     platforms: list = "linux windows other".split(" ")
-    monkeypatch.setattr("os.uname", lambda: MockUname())
+    monkeypatch.setattr("os.uname", lambda: MockUname(), raising=False)
     monkeypatch.setattr("os.getlogin", lambda: "windows_user")
     for session_id, platform in enumerate(platforms):
         monkeypatch.setattr("sys.platform", platform)

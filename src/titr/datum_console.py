@@ -114,7 +114,7 @@ class _ConsolePattern:
         _PATTERN_LIST.append(self)
 
     def __call__(self, *args, **kwargs):
-        argstr = " ".join([arg for arg in args[1:]])
+        # argstr = " ".join([arg for arg in args[1:]])
         _COMMAND_HISTORY.append(self.name)
         return self.function(*args, **kwargs)
 

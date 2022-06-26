@@ -388,7 +388,7 @@ def test_get_user_input(console, monkeypatch, capsys):
         #  "copy_output": ["clip"],
         #  'commit':   ['c', 'commit'],
         #  "set_date": ["d", "date", "D", "d -1", "date 2013-08-05"],
-        "import_from_outlook": ["O", "outlook"],
+        #  "import_from_outlook": ["O", "outlook"],
         #  "preview_output": ["p", "preview"],
         #  "list_categories_and_tasks": ["ls", "list"],
         #  "undo_last": ["z", "undo"],

@@ -30,7 +30,7 @@ CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 #  TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 TITR_DB: str = "titr_test.db"
 COLUMN_WIDTHS = [13, 8, 12, 25, 38]
-NEW_CONSOLE = True
+NEW_CONSOLE = False
 
 
 def main() -> None:
@@ -136,7 +136,7 @@ class ConsoleSession:
             "date": (["d", "date"], set_date),
             "help": (["h", "help"], self.help_msg),
             "list": (["ls", "list"], list_categories_and_tasks),
-            "outlook": (["o", "outlook"], self.import_from_outlook),
+            "outlook": (["o", "outlook"], import_from_outlook),
             "null_cmd": ([""], None),
             "preview": (["p", "preview"], preview_output),
             "quit": (["q", "quit"], exit),
@@ -170,7 +170,7 @@ class ConsoleSession:
             case [alias, *_] if self._is_alias(alias, "list"):
                 list_categories_and_tasks(self)
             case [alias] if self._is_alias(alias, "outlook"):
-                self.import_from_outlook()
+                import_from_outlook(self)
             case [alias, *_] if self._is_alias(alias, "preview"):
                 preview_output(self)
             case [alias, str(scale_target)] if self._is_alias(alias, "scale"):
@@ -205,61 +205,6 @@ class ConsoleSession:
         if command not in self.command_list.keys():
             return False
         return alias.lower() in self.command_list[command][0]
-
-    def import_from_outlook(self) -> None:
-        """Import appointments from outlook."""
-        outlook_items = get_outlook_items(
-            self.date, self.calendar_name, self.outlook_account
-        )
-        if outlook_items is not None:
-            # Note: using len(outlook_items) or outlook_items.Count
-            # will return an undefined value.
-            num_items = sum(1 for _ in outlook_items)
-            if num_items == 0:
-                raise KeyError(f"No outlook items found for {self.date}")
-
-            print(f"Found total of {num_items} events for {self.date}:")
-            self._set_outlook_mode()
-            for item in outlook_items:
-                if item.AllDayEvent is True and self.config.skip_all_day_events is True:
-                    continue
-                if item.Subject in self.config.skip_event_names:
-                    continue
-                if item.BusyStatus in self.config.skip_event_status:
-                    continue
-                comment = item.Subject
-                duration = item.Duration / 60  # convert minutes to hours
-
-                # TODO: Accept multiple categories
-                appt_category = item.Categories.split(",")[0].strip()
-                category = self.config.default_category
-                for key, cat in self.config.category_list.items():
-                    if cat == appt_category:
-                        category = key
-                        break
-
-                # TODO: Improve formatting
-                cat_str = self.config.category_list[category]
-                event_str = f"{comment}\n{cat_str} - {round(duration,2)} hr > "
-                ui = None
-                while ui != 1:
-                    try:
-                        ui = self.get_user_input(
-                            outlook_item=(duration, category, comment),
-                            input_str=event_str,
-                        )
-                    except ValueError as err:
-                        print(err)
-
-                    if ui == 0:
-                        break
-
-                # TODO: Better handling of quitting outlook mode
-                if ui == 0:  # pragma: no cover
-                    break
-
-            self._set_normal_mode()
-            self.preview_output()
 
     def _set_outlook_mode(self) -> None:
         """Set console mode to add items from outlook."""
@@ -478,6 +423,60 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     clear_entries(console)
     print(f"Commited entries to {TITR_DB}.")
 
+def import_from_outlook(console: ConsoleSession) -> None:
+    """Import appointments from outlook."""
+    outlook_items = get_outlook_items(
+        console.date, console.config.calendar_name, console.config.outlook_account
+    )
+    if outlook_items is not None:
+        # Note: using len(outlook_items) or outlook_items.Count
+        # will return an undefined value.
+        num_items = sum(1 for _ in outlook_items)
+        if num_items == 0:
+            raise KeyError(f"No outlook items found for {console.date}")
+
+        print(f"Found total of {num_items} events for {console.date}:")
+        console._set_outlook_mode()
+        for item in outlook_items:
+            if item.AllDayEvent is True and console.config.skip_all_day_events is True:
+                continue
+            if item.Subject in console.config.skip_event_names:
+                continue
+            if item.BusyStatus in console.config.skip_event_status:
+                continue
+            comment = item.Subject
+            duration = item.Duration / 60  # convert minutes to hours
+
+            # TODO: Accept multiple categories
+            appt_category = item.Categories.split(",")[0].strip()
+            category = console.config.default_category
+            for key, cat in console.config.category_list.items():
+                if cat == appt_category:
+                    category = key
+                    break
+
+            # TODO: Improve formatting
+            cat_str = console.config.category_list[category]
+            event_str = f"{comment}\n{cat_str} - {round(duration,2)} hr > "
+            ui = None
+            while ui != 1:
+                try:
+                    ui = console.get_user_input(
+                        outlook_item=(duration, category, comment),
+                        input_str=event_str,
+                    )
+                except ValueError as err:
+                    print(err)
+
+                if ui == 0:
+                    break
+
+            # TODO: Better handling of quitting outlook mode
+            if ui == 0:  # pragma: no cover
+                break
+
+        console._set_normal_mode()
+        preview_output(console)
 
 #####################
 # PRIVATE FUNCTIONS #
