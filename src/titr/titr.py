@@ -9,7 +9,6 @@ https://github.com/blairfrandeen/titr
 
 import configparser
 import datetime
-import functools
 import os
 import sqlite3
 import sys
@@ -23,6 +22,8 @@ from datum_console import (
     get_input,
     disable_command,
     enable_command,
+    patch_command,
+    set_pattern,
 )
 from dataclasses import dataclass, field
 
@@ -30,7 +31,7 @@ CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 #  TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 TITR_DB: str = "titr_test.db"
 COLUMN_WIDTHS = [13, 8, 12, 25, 38]
-NEW_CONSOLE = False
+NEW_CONSOLE = True
 
 
 def main() -> None:
@@ -49,24 +50,6 @@ def main() -> None:
                 print(f"Error: {err}")
             except ImportError as err:
                 print(err)
-
-
-@ConsoleCommand(hidden=True)
-def oltest(cs):
-    """Test"""
-    disabled_commands = "oltest date write quit".split(" ")
-    for cmd in disabled_commands:
-        disable_command(cmd)
-    for item in ["Test 1: ", "Test 2: ", "Test 3: "]:
-        command = get_input(
-            session_args=cs,
-            break_commands=["add_entry", "null_cmd", "quit"],
-            prompt=item,
-        )
-        if command.name == "quit":
-            break
-    for cmd in disabled_commands:
-        enable_command(cmd)
 
 
 ####################
@@ -146,6 +129,7 @@ class ConsoleSession:
         self.date = datetime.date.today()
         exit.__doc__ = "Quit"
         self.config = load_config()
+        self.outlook_item = None
 
     def get_user_input(self, outlook_item=None, input_str: str = "> ") -> Optional[int]:
         user_input: str = input(input_str)
@@ -165,8 +149,7 @@ class ConsoleSession:
             case [alias] if self._is_alias(alias, "date"):
                 set_date(self)
             case [alias, str(date_input)] if self._is_alias(alias, "date"):
-                new_date = parse_date(datestr=date_input)
-                set_date(self, new_date)
+                set_date(self, date_input)
             case [alias, *_] if self._is_alias(alias, "list"):
                 list_categories_and_tasks(self)
             case [alias] if self._is_alias(alias, "outlook"):
@@ -254,9 +237,7 @@ class TimeEntry:
         date: datetime.date = datetime.date.today(),
     ) -> None:
         self.duration: float = duration
-        self.category = (
-            session.config.default_category if category is None else category
-        )
+        self.category = session.config.default_category if category is None else category
         self.task = session.config.default_task if task is None else task
         self.comment: str = comment
         self.date: datetime.date = date
@@ -297,9 +278,7 @@ class TimeEntry:
                 fmt, al = ".2f", "<"
             else:
                 fmt, al = "", "<"
-            self_str += "{i:{al}{wd}{fmt}}".format(
-                i=item, al=al, fmt=fmt, wd=COLUMN_WIDTHS[index]
-            )
+            self_str += "{i:{al}{wd}{fmt}}".format(i=item, al=al, fmt=fmt, wd=COLUMN_WIDTHS[index])
 
         return self_str.strip()
 
@@ -374,7 +353,7 @@ def scale_time_entries(console, target_total) -> None:
 
 
 @ConsoleCommand(name="date", aliases=["d"])
-def set_date(console, new_date: datetime.date = datetime.date.today()) -> None:
+def set_date(console, datestr: str) -> None:
     """Set the date for time entries.
 
     Enter 'date' with no arguments to set date to today.
@@ -383,8 +362,18 @@ def set_date(console, new_date: datetime.date = datetime.date.today()) -> None:
     Enter 'date yyyy-mm-dd' to set to any custom date.
     Dates must not be in the future.
     """
-    if not isinstance(new_date, datetime.date):
-        raise TypeError("Wrong argument passed to set_date")
+    new_date: Optional[datetime.date] = None
+    try:
+        date_delta: int = int(datestr)
+    except ValueError:
+        pass
+    else:
+        if date_delta > 0:
+            raise ValueError("Date cannot be in the future.")
+        new_date = datetime.date.today() + datetime.timedelta(days=date_delta)
+
+    new_date = datetime.date.fromisoformat(datestr) if not new_date else new_date
+
     console.date = new_date
     print(f"Date set to {new_date.isoformat()}")
 
@@ -423,6 +412,26 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     clear_entries(console)
     print(f"Commited entries to {TITR_DB}.")
 
+
+@ConsoleCommand(hidden=True)
+def oltest(cs):
+    """Test"""
+    disabled_commands = "oltest date write quit".split(" ")
+    for cmd in disabled_commands:
+        disable_command(cmd)
+    for item in ["Test 1: ", "Test 2: ", "Test 3: "]:
+        command = get_input(
+            session_args=cs,
+            break_commands=["add_entry", "null_cmd", "quit"],
+            prompt=item,
+        )
+        if command.name == "quit":
+            break
+    for cmd in disabled_commands:
+        enable_command(cmd)
+
+
+@ConsoleCommand(name="outlook", aliases=["o"])
 def import_from_outlook(console: ConsoleSession) -> None:
     """Import appointments from outlook."""
     outlook_items = get_outlook_items(
@@ -435,14 +444,21 @@ def import_from_outlook(console: ConsoleSession) -> None:
         if num_items == 0:
             raise KeyError(f"No outlook items found for {console.date}")
 
+        old_entry_pattern = set_pattern("add_entry", outlook_entry_pattern)
+        # Disable commands in the console
+        # patch_command("null_cmd", "add_entry")
+        disabled_commands = "oltest date write quit".split(" ")
+        for cmd in disabled_commands:
+            disable_command(cmd)
+
         print(f"Found total of {num_items} events for {console.date}:")
-        console._set_outlook_mode()
+        # console._set_outlook_mode()
         for item in outlook_items:
-            if item.AllDayEvent is True and console.config.skip_all_day_events is True:
-                continue
-            if item.Subject in console.config.skip_event_names:
-                continue
-            if item.BusyStatus in console.config.skip_event_status:
+            if (
+                (item.AllDayEvent is True and console.config.skip_all_day_events is True)
+                or item.Subject in console.config.skip_event_names
+                or item.BusyStatus in console.config.skip_event_status
+            ):
                 continue
             comment = item.Subject
             duration = item.Duration / 60  # convert minutes to hours
@@ -458,25 +474,25 @@ def import_from_outlook(console: ConsoleSession) -> None:
             # TODO: Improve formatting
             cat_str = console.config.category_list[category]
             event_str = f"{comment}\n{cat_str} - {round(duration,2)} hr > "
-            ui = None
-            while ui != 1:
-                try:
-                    ui = console.get_user_input(
-                        outlook_item=(duration, category, comment),
-                        input_str=event_str,
-                    )
-                except ValueError as err:
-                    print(err)
-
-                if ui == 0:
-                    break
-
-            # TODO: Better handling of quitting outlook mode
-            if ui == 0:  # pragma: no cover
+            console.outlook_item = (duration, category, comment)
+            command = get_input(
+                session_args=console,
+                break_commands=["add_entry", "null_cmd", "quit"],
+                prompt=event_str,
+            )
+            console.outlook_item = None
+            if command.name == "quit":
                 break
 
-        console._set_normal_mode()
+        # Reenable commands
+        set_pattern("add_entry", old_entry_pattern)
+        # patch_command("add_entry", "null_cmd")
+        for cmd in disabled_commands:
+            enable_command(cmd)
         preview_output(console)
+
+        # console._set_normal_mode()
+
 
 #####################
 # PRIVATE FUNCTIONS #
@@ -488,8 +504,12 @@ def time_entry_pattern(user_input: str) -> bool:
     return is_float(user_input.split(" ")[0])
 
 
+def outlook_entry_pattern(user_input: str) -> bool:
+    return time_entry_pattern(user_input) or user_input == ""
+
+
 @ConsolePattern(pattern=time_entry_pattern, name="add_entry")
-def _add_entry(console, user_input: str, outlook_item=None) -> None:
+def _add_entry(console, user_input: str) -> None:
     """Add a new entry to the time log.
 
     Format is <duration> [<category> <task> <comment>]
@@ -508,12 +528,12 @@ def _add_entry(console, user_input: str, outlook_item=None) -> None:
     2.1     (2.1 hrs, default category & task, no comment)
     """
     entry_args: Optional[Dict[Any, Any]] = _parse_time_entry(console, user_input)
-    if outlook_item:
+    if console.outlook_item:
         if not entry_args:
             entry_args = dict()
         for index, key in enumerate(["duration", "category", "comment"]):
             if key not in entry_args.keys():
-                entry_args[key] = outlook_item[index]
+                entry_args[key] = console.outlook_item[index]
     if entry_args and entry_args["duration"] != 0:
         console.time_entries.append(TimeEntry(console, date=console.date, **entry_args))
         print(console.time_entries[-1])
@@ -564,8 +584,7 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]
                 time_entry_arguments["comment"] = " ".join(comment).strip()
         # Comment only
         case (str(cat_key), str(task), *comment) if (
-            not is_float(cat_key)
-            and task.lower() not in console.config.task_list.keys()
+            not is_float(cat_key) and task.lower() not in console.config.task_list.keys()
         ):
             new_comment: str = (cat_key + " " + task + " " + " ".join(comment)).strip()
             if new_comment:
@@ -629,24 +648,18 @@ def load_config(config_file=CONFIG_FILE) -> Config:
     config.outlook_account = parser["outlook_options"]["email"]
     config.calendar_name = parser["outlook_options"]["calendar_name"]
     config.skip_event_names = [
-        event.strip()
-        for event in parser["outlook_options"]["skip_event_names"].split(",")
+        event.strip() for event in parser["outlook_options"]["skip_event_names"].split(",")
     ]
     # TODO: Error handling
     config.skip_event_status = [
-        int(status)
-        for status in parser["outlook_options"]["skip_event_status"].split(",")
+        int(status) for status in parser["outlook_options"]["skip_event_status"].split(",")
     ]
-    config.skip_all_day_events = parser.getboolean(
-        "outlook_options", "skip_all_day_events"
-    )
+    config.skip_all_day_events = parser.getboolean("outlook_options", "skip_all_day_events")
 
     return config
 
 
-def get_outlook_items(
-    search_date: datetime.date, calendar_name: str, outlook_account: str
-):
+def get_outlook_items(search_date: datetime.date, calendar_name: str, outlook_account: str):
     """Read calendar items from Outlook."""
     # connect to outlook
     import pywintypes
@@ -709,28 +722,10 @@ def is_float(item: str) -> bool:
         return False
 
 
-def parse_date(datestr: str) -> datetime.date:
-    try:
-        date_delta: int = int(datestr)
-    except ValueError:
-        pass
-    else:
-        if date_delta > 0:
-            raise ValueError("Date cannot be in the future.")
-        return datetime.date.today() + datetime.timedelta(days=date_delta)
-
-    new_date: datetime.date = datetime.date.fromisoformat(datestr)
-    if new_date > datetime.date.today():
-        raise ValueError("Date cannot be in the future.")
-    return new_date
-
-
 ######################
 # DATABASE FUNCTIONS #
 ######################
-def db_initialize(
-    database_file: str = TITR_DB, test_flag: bool = False
-) -> sqlite3.Connection:
+def db_initialize(database_file: str = TITR_DB, test_flag: bool = False) -> sqlite3.Connection:
     """Write the sessions time entries to a database."""
     db_connection = sqlite3.connect(database_file)
     cursor = db_connection.cursor()
@@ -805,9 +800,7 @@ def db_populate_task_category_lists(
     db_connection.commit()
 
 
-def db_session_metadata(
-    db_connection: sqlite3.Connection, test_flag: bool = False
-) -> int:
+def db_session_metadata(db_connection: sqlite3.Connection, test_flag: bool = False) -> int:
     """Make entry in session table and return the session id."""
     cursor = db_connection.cursor()
     new_entry: str = """--sql

@@ -1,5 +1,4 @@
-import functools
-from typing import Callable, List
+from typing import Callable, Optional
 
 
 ####################
@@ -10,10 +9,14 @@ def ConsolePattern(
 ) -> Callable:
     """Decorator for commands that match a pattern rather than having an explicit alias."""
 
-    def _wrapper(function):
-        return _ConsolePattern(function, pattern, name)
+    if function:
+        return _ConsolePattern(function)
+    else:
 
-    return _wrapper
+        def _wrapper(function):
+            return _ConsolePattern(function, pattern, name)
+
+        return _wrapper
 
 
 def ConsoleCommand(
@@ -50,6 +53,25 @@ def enable_command(command_name: str, hidden=False) -> None:
     cmd.hidden = hidden
 
 
+def set_pattern(pattern_name: str, new_pattern: Callable) -> Callable:
+    """Modify an existing pattern."""
+    if pattern_name not in _PATTERN_LIST.keys():
+        raise KeyError(f"Invalid Pattern Specified: '{pattern_name}'")
+    pat = _PATTERN_LIST[pattern_name]
+    old_pattern = pat.match_pattern
+    pat.match_pattern = new_pattern
+    return old_pattern
+
+
+def patch_command(target: str, source: str):
+    print(f"{_COMMAND_LIST=}")
+    if target not in _COMMAND_LIST.keys():
+        raise KeyError(f"Invalid Command Specified: '{target}'")
+    if source not in _COMMAND_LIST.keys():
+        raise KeyError(f"Invalid Command Specified: '{source}'")
+    _COMMAND_LIST[target].function = _COMMAND_LIST[source].function
+
+
 def get_input(
     session_args=None, prompt: str = ">>", break_commands: list[str] = ["quit"]
 ) -> ConsoleCommand:
@@ -61,7 +83,7 @@ def get_input(
         kwargs = dict()
 
         # Check to see if pattern match
-        for pattern_cmd in _PATTERN_LIST:
+        for pattern_cmd in _PATTERN_LIST.values():
             if pattern_cmd.match_pattern(user_input):
                 exec_cmd = pattern_cmd
                 args = [user_input]
@@ -93,7 +115,7 @@ def get_input(
     return exec_cmd
 
 
-_PATTERN_LIST: list[ConsolePattern] = []
+_PATTERN_LIST: dict = dict()
 _COMMAND_LIST: dict = dict()
 _COMMAND_HISTORY: list[str] = []
 #####################
@@ -111,7 +133,7 @@ class _ConsolePattern:
         self.enabled = True
         self.hidden = False
 
-        _PATTERN_LIST.append(self)
+        _PATTERN_LIST[self.name] = self
 
     def __call__(self, *args, **kwargs):
         # argstr = " ".join([arg for arg in args[1:]])
@@ -144,6 +166,7 @@ class _ConsoleCommand:
         if self.enabled:
             return self.function(*args, **kwargs)
         else:
+            print("Disabled.")
             return None
 
     def __str__(self):
