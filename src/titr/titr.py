@@ -16,6 +16,7 @@ from typing import Optional, Tuple, Dict, List, Callable, Any
 
 from __init__ import __version__
 from colorama import Fore, Style
+# TODO: import datum_console as dc
 from datum_console import (
     ConsoleCommand,
     ConsolePattern,
@@ -336,6 +337,7 @@ def preview_output(console: ConsoleSession) -> None:
     print(Style.NORMAL + Fore.RESET, end="")
 
 
+# TODO: Fix this function to accept string input
 @ConsoleCommand(name="scale", aliases=["s"])
 def scale_time_entries(console, target_total) -> None:
     """Scale time entries by weighted average to sum to a target total duration."""
@@ -352,6 +354,7 @@ def scale_time_entries(console, target_total) -> None:
         entry.duration = entry.duration + scale_amount * entry.duration / unscaled_total
 
 
+# TODO: ALlow for no datestr
 @ConsoleCommand(name="date", aliases=["d"])
 def set_date(console, datestr: str) -> None:
     """Set the date for time entries.
@@ -408,27 +411,12 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     # Close the connection
     db_connection.close()
 
+    # Copy entries to clipboard in case we are still using Excel
+    copy_output(console)
+
     # Clear all time entries so they aren't entered a second time
     clear_entries(console)
     print(f"Commited entries to {TITR_DB}.")
-
-
-@ConsoleCommand(hidden=True)
-def oltest(cs):
-    """Test"""
-    disabled_commands = "oltest date write quit".split(" ")
-    for cmd in disabled_commands:
-        disable_command(cmd)
-    for item in ["Test 1: ", "Test 2: ", "Test 3: "]:
-        command = get_input(
-            session_args=cs,
-            break_commands=["add_entry", "null_cmd", "quit"],
-            prompt=item,
-        )
-        if command.name == "quit":
-            break
-    for cmd in disabled_commands:
-        enable_command(cmd)
 
 
 @ConsoleCommand(name="outlook", aliases=["o"])
@@ -444,10 +432,10 @@ def import_from_outlook(console: ConsoleSession) -> None:
         if num_items == 0:
             raise KeyError(f"No outlook items found for {console.date}")
 
-        old_entry_pattern = set_pattern("add_entry", outlook_entry_pattern)
+        # Allow blank entries to be mapped to add_item command
+        set_pattern("add_entry", outlook_entry_pattern)
         # Disable commands in the console
-        # patch_command("null_cmd", "add_entry")
-        disabled_commands = "oltest date write quit".split(" ")
+        disabled_commands = "date write quit".split(" ")
         for cmd in disabled_commands:
             disable_command(cmd)
 
@@ -485,19 +473,16 @@ def import_from_outlook(console: ConsoleSession) -> None:
                 break
 
         # Reenable commands
-        set_pattern("add_entry", old_entry_pattern)
-        # patch_command("add_entry", "null_cmd")
+        set_pattern("add_entry", time_entry_pattern)
         for cmd in disabled_commands:
             enable_command(cmd)
         preview_output(console)
-
-        # console._set_normal_mode()
 
 
 #####################
 # PRIVATE FUNCTIONS #
 #####################
-# TODO: Rename with leading underscore
+# TODO: Rename with leading underscore, organize
 
 
 def time_entry_pattern(user_input: str) -> bool:
