@@ -83,21 +83,19 @@ class MockTimeEntry:
         return self_str
 
 
-alias_tests = [
+@pytest.mark.parametrize("item, expected", [
     (("d", "date"), True),
     (("o", "outlook"), True),
     (("quit", "quit"), True),
     (("x", "not a command"), False),
     (("?", "undo"), False),
-]
-
-
-@pytest.mark.parametrize("item, expected", alias_tests)
+    ])
 def test_is_alias(console, item, expected):
     assert console._is_alias(*item) is expected
 
 
-float_tests = [
+
+@pytest.mark.parametrize("item, expected", [
     ("yankee", False),
     ("dOODlE", False),
     ("KLJF#*(@#!!", False),
@@ -113,10 +111,7 @@ float_tests = [
     (-4.23e-5, True),
     (False, True),
     ("NaN", True),
-]
-
-
-@pytest.mark.parametrize("item, expected", float_tests)
+    ])
 def test_is_float(item, expected):
     assert titr.is_float(item) is expected
 
@@ -128,37 +123,27 @@ def test_float_bad_inputs():
             titr.is_float(item)
 
 
-# TODO: Parametrize
-def test_scale_duration(console, capsys):
-    # initial list, scale total, final list
-    scale_tests = [
-        ([2, 2], 5, [2.5, 2.5]),
-        ([2, 2], 4, [2, 2]),
-        (
-            [
-                2,
-            ],
-            5,
-            [5],
-        ),
-        ([3, 4], 6, [3 - 3 / 7, 4 - 4 / 7]),
-        ([1, 2, 3], 7, [7 / 6, 14 / 6, 3.5]),
-        ([4, 5, 6, 2], 17, [4, 5, 6, 2]),
-        ([], 39, []),
-    ]
-    for test in scale_tests:
+@pytest.mark.parametrize("initial_times, user_input, expected_times", [
+    ([2, 2], "5", [2.5, 2.5]),
+    ([2, 2], "4", [2, 2]),
+    ([2, ], "5", [5],),
+    ([3, 4], "6", [3 - 3 / 7, 4 - 4 / 7]),
+    ([1, 2, 3], "7", [7 / 6, 14 / 6, 3.5]),
+    ([4, 5, 6, 2], "17", [4, 5, 6, 2]),
+    ([], "39", []),
+    ([1,2,3], "not a float", None),
+    ])
+def test_scale_duration(console, capsys, initial_times, user_input, expected_times):
+    if expected_times is not None:
         console.time_entries = []
-        for duration in test[0]:
+        for duration in initial_times:
             console.time_entries.append(titr.TimeEntry(console, duration))
-        titr.scale_time_entries(console, test[1])
+        titr.scale_time_entries(console, user_input)
         for index, entry in enumerate(console.time_entries):
-            print(entry, index)
-            assert entry.duration == test[2][index]
-
-    console.time_entries = []
-    titr.scale_time_entries(console, 3)
-    captured = capsys.readouterr()
-    assert "cannot scale from zero" in captured.out
+            assert entry.duration == expected_times[index]
+    else:
+        with pytest.raises(TypeError):
+            titr.scale_time_entries(user_input)
 
 
 def test_preview(console, time_entry, capsys):
@@ -320,15 +305,11 @@ def test_add_entry(console, monkeypatch):
     mock_parse = {"duration": 5, "category": 3, "comment": "test item"}
 
     monkeypatch.setattr(titr, "_parse_time_entry", lambda *_: mock_parse)
-    titr._add_entry(console, mock_inputs)
+    titr.add_entry(console, mock_inputs)
     assert console.time_entries[0].duration == 5
     mock_parse["duration"] = 4
-    titr._add_entry(console, mock_inputs, outlook_item=(5, 3, "1"))
+    titr.add_entry(console, mock_inputs)
     assert console.time_entries[1].duration == 4
-    mock_parse = None
-    titr._add_entry(console, mock_inputs, outlook_item=(2, 2, "5"))
-    assert console.time_entries[2].duration == 2
-
 
 def test_help_msg(console, monkeypatch, capsys):
     def _add_entry():  # pragma: no cover
@@ -354,28 +335,15 @@ def test_help_msg(console, monkeypatch, capsys):
         assert cmd in captured.out
 
 
-def test_set_date(console, monkeypatch):
-    titr.set_date(console)
-    assert console.date == datetime.date.today()
-
-    titr.set_date(console, datetime.date.fromisoformat("2022-06-17"))
-    assert console.date == datetime.date(2022, 6, 17)
-
-    with pytest.raises(TypeError):
-        titr.set_date(console, "1941-12-07")
-
-
-invalid_commands = [
+@pytest.mark.xfail
+@pytest.mark.parametrize("cmd",
+[
     "help, I'm a bug",
     ".25*923",
     "Y",
     "45e12",
     "-2 4 g 'negative work'",
-]
-
-
-@pytest.mark.xfail
-@pytest.mark.parametrize("cmd", invalid_commands)
+])
 def test_get_user_input_invalid(cmd, monkeypatch, console):
     monkeypatch.setattr("builtins.input", lambda _: cmd)
     with pytest.raises(ValueError):
@@ -427,23 +395,21 @@ def test_get_user_input(console, monkeypatch, capsys):
     assert console.get_user_input() == 0
 
 
-today = datetime.date.today()
-valid_dates = [
+@pytest.mark.parametrize("test_input, expected", [
+    (None, datetime.date.today()),
     ("1984-06-17", datetime.date(1984, 6, 17)),
-    ("-1", today + datetime.timedelta(days=-1)),
-    ("-7", today + datetime.timedelta(days=-7)),
-    ("0", today),
+    ("-1", datetime.date.today() + datetime.timedelta(days=-1)),
+    ("-7", datetime.date.today() + datetime.timedelta(days=-7)),
+    ("0", datetime.date.today()),
     ("12", None),
     ("not a date", None),
     ("6/17/84", None),
     ("2121-04-23", None),
-]
-
-
-@pytest.mark.parametrize("test_input, expected", valid_dates)
-def test_parse_date(test_input, expected):
+    ])
+def test_set_date(test_input, expected):
     if expected is not None:
-        assert titr.parse_date(test_input) == expected
+        titr.set_date(console, test_input)
+        assert console.date == expected
     else:
         with pytest.raises(ValueError):
-            titr.parse_date(test_input)
+            titr.set_date(console, test_input)

@@ -113,7 +113,7 @@ class ConsoleSession:
     def __init__(self) -> None:
         self.time_entries: List[TimeEntry] = []
         self.command_list: Dict[str, Tuple[List[str], Optional[Callable]]] = {
-            "add": (["add"], _add_entry),
+            "add": (["add"], add_entry),
             "clear": (["clear"], clear_entries),
             "clip": (["clip"], copy_output),
             "commit": (["c", "commit"], write_db),  # not implemented
@@ -136,7 +136,7 @@ class ConsoleSession:
         user_input: str = input(input_str)
         match user_input.split(" "):
             case [str(duration), *_] if is_float(duration):
-                _add_entry(self, user_input, outlook_item)
+                add_entry(self, user_input, outlook_item)
                 return 1
             case [alias, *_] if self._is_alias(alias, "add"):
                 # self.command_list['help'][1](command='add')
@@ -177,7 +177,7 @@ class ConsoleSession:
             case [alias] if self._is_alias(alias, "help"):
                 self.help_msg()
             case [alias] if self._is_alias(alias, "null_cmd"):  # pragma: no cover
-                _add_entry(self, user_input, outlook_item)
+                add_entry(self, user_input, outlook_item)
                 return 1
             case _:
                 raise ValueError(f'Invalid input: "{user_input}"')
@@ -288,6 +288,45 @@ class TimeEntry:
 # CONSOLE FUNCTIONS #
 #####################
 
+def time_entry_pattern(user_input: str) -> bool:
+    return is_float(user_input.split(" ")[0])
+
+
+def outlook_entry_pattern(user_input: str) -> bool:
+    return time_entry_pattern(user_input) or user_input == ""
+
+
+@ConsolePattern(pattern=time_entry_pattern, name="add_entry")
+def add_entry(console, user_input: str) -> None:
+    """Add a new entry to the time log.
+
+    Format is <duration> [<category> <task> <comment>]
+    There is no need to type 'add'
+    Duration is required and must be able to be converted to float
+    Type 'ls accounts' and 'ls categories' for available accounts & categories
+    Category must be an integer; task must be a single character
+    Any text after the task is considered a comment.
+    All arguments other than duration are optional.
+
+    Some examples:
+    1 2 i this is one hour in category 2 in task 'i'
+    1 this is one hour on default task & category
+    .5 i this is one hour in task 'i'
+    1 2 this is one hour in category 2
+    2.1     (2.1 hrs, default category & task, no comment)
+    """
+    entry_args: Optional[Dict[Any, Any]] = _parse_time_entry(console, user_input)
+    if console.outlook_item:
+        if not entry_args:
+            entry_args = dict()
+        for index, key in enumerate(["duration", "category", "comment"]):
+            if key not in entry_args.keys():
+                entry_args[key] = console.outlook_item[index]
+    if entry_args and entry_args["duration"] != 0:
+        console.time_entries.append(TimeEntry(console, date=console.date, **entry_args))
+        print(console.time_entries[-1])
+
+
 
 @ConsoleCommand(name="clear")
 def clear_entries(console) -> None:
@@ -337,12 +376,13 @@ def preview_output(console: ConsoleSession) -> None:
     print(Style.NORMAL + Fore.RESET, end="")
 
 
-# TODO: Fix this function to accept string input
 @ConsoleCommand(name="scale", aliases=["s"])
-def scale_time_entries(console, target_total) -> None:
+def scale_time_entries(console: ConsoleSession, target_total: str=None) -> None:
     """Scale time entries by weighted average to sum to a target total duration."""
+    if not is_float(target_total):
+        raise TypeError(f"Cannot convert {target_total} to float.")
     unscaled_total: float = sum([entry.duration for entry in console.time_entries])
-    scale_amount: float = target_total - unscaled_total
+    scale_amount: float = float(target_total) - unscaled_total
     if scale_amount == 0:
         return None
     if unscaled_total == 0:
@@ -354,9 +394,8 @@ def scale_time_entries(console, target_total) -> None:
         entry.duration = entry.duration + scale_amount * entry.duration / unscaled_total
 
 
-# TODO: ALlow for no datestr
 @ConsoleCommand(name="date", aliases=["d"])
-def set_date(console, datestr: str) -> None:
+def set_date(console, datestr: str=None) -> None:
     """Set the date for time entries.
 
     Enter 'date' with no arguments to set date to today.
@@ -365,6 +404,9 @@ def set_date(console, datestr: str) -> None:
     Enter 'date yyyy-mm-dd' to set to any custom date.
     Dates must not be in the future.
     """
+    if not datestr:
+        console.date = datetime.date.today()
+        return None
     new_date: Optional[datetime.date] = None
     try:
         date_delta: int = int(datestr)
@@ -376,6 +418,8 @@ def set_date(console, datestr: str) -> None:
         new_date = datetime.date.today() + datetime.timedelta(days=date_delta)
 
     new_date = datetime.date.fromisoformat(datestr) if not new_date else new_date
+    if new_date > datetime.date.today():
+        raise ValueError("Date cannot be in the future")
 
     console.date = new_date
     print(f"Date set to {new_date.isoformat()}")
@@ -483,45 +527,6 @@ def import_from_outlook(console: ConsoleSession) -> None:
 # PRIVATE FUNCTIONS #
 #####################
 # TODO: Rename with leading underscore, organize
-
-
-def time_entry_pattern(user_input: str) -> bool:
-    return is_float(user_input.split(" ")[0])
-
-
-def outlook_entry_pattern(user_input: str) -> bool:
-    return time_entry_pattern(user_input) or user_input == ""
-
-
-@ConsolePattern(pattern=time_entry_pattern, name="add_entry")
-def _add_entry(console, user_input: str) -> None:
-    """Add a new entry to the time log.
-
-    Format is <duration> [<category> <task> <comment>]
-    There is no need to type 'add'
-    Duration is required and must be able to be converted to float
-    Type 'ls accounts' and 'ls categories' for available accounts & categories
-    Category must be an integer; task must be a single character
-    Any text after the task is considered a comment.
-    All arguments other than duration are optional.
-
-    Some examples:
-    1 2 i this is one hour in category 2 in task 'i'
-    1 this is one hour on default task & category
-    .5 i this is one hour in task 'i'
-    1 2 this is one hour in category 2
-    2.1     (2.1 hrs, default category & task, no comment)
-    """
-    entry_args: Optional[Dict[Any, Any]] = _parse_time_entry(console, user_input)
-    if console.outlook_item:
-        if not entry_args:
-            entry_args = dict()
-        for index, key in enumerate(["duration", "category", "comment"]):
-            if key not in entry_args.keys():
-                entry_args[key] = console.outlook_item[index]
-    if entry_args and entry_args["duration"] != 0:
-        console.time_entries.append(TimeEntry(console, date=console.date, **entry_args))
-        print(console.time_entries[-1])
 
 
 def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]:
