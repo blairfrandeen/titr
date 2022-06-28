@@ -32,72 +32,13 @@ CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 #  TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 TITR_DB: str = "titr_test.db"
 COLUMN_WIDTHS = [13, 8, 12, 25, 38]
-NEW_CONSOLE = True
 
 
 def main() -> None:
     print("Welcome to titr.")
     cmd_dict = dict()
     cs = ConsoleSession()
-    if NEW_CONSOLE:
-        get_input(session_args=cs)
-    else:
-        while True:  # pragma: no cover
-            try:
-                cs.get_user_input()
-            except NotImplementedError:
-                print("not implemented")
-            except (ValueError, TypeError, KeyError) as err:
-                print(f"Error: {err}")
-            except ImportError as err:
-                print(err)
-
-
-####################
-# PUBLIC FUNCTIONS #
-####################
-def create_default_config():
-    """Create a default configuration file"""
-    # Ensure we don't accidentally overwrite config
-    if os.path.isfile(CONFIG_FILE):
-        raise FileExistsError(f"Config file '{CONFIG_FILE}' already exists!")
-    config = configparser.ConfigParser(allow_no_value=True)
-    user_email: str = input("Enter your email to connect to outlook: ")
-    config["outlook_options"] = {
-        "email": user_email,
-        "calendar_name": "Calendar",
-        "# skip events with given status codes, comma separated list": None,
-        "# 0 = free": None,
-        "# 1 = tentative": None,
-        "# 2 = busy": None,
-        "# 3 = out of office": None,
-        "# 4 = working elsewhere": None,
-        "skip_event_status": "0, 3",
-        "skip_all_day_events": "yes",
-        "# use comma separated list of calendar event names to be skipped": None,
-        "skip_event_names": "",
-    }
-    config["general_options"] = {
-        "max_entry_duration": "9",
-        "default_category": "2",
-        "default_task": "d",
-    }
-    config["categories"] = {
-        2: "Deep Work",
-        3: "Email",
-        4: "Meetings",
-    }
-    config["tasks"] = {
-        "i": "Incidental",
-        "d": "Default Task",
-    }
-    config_path: str = os.path.dirname(CONFIG_FILE)
-    if not os.path.exists(config_path):  # pragma: no cover
-        os.mkdir(config_path)
-    with open(CONFIG_FILE, "w") as config_file_handle:
-        config.write(config_file_handle)
-
-    return CONFIG_FILE
+    get_input(session_args=cs)
 
 
 ###########
@@ -112,113 +53,9 @@ class Config:
 class ConsoleSession:
     def __init__(self) -> None:
         self.time_entries: List[TimeEntry] = []
-        self.command_list: Dict[str, Tuple[List[str], Optional[Callable]]] = {
-            "add": (["add"], add_entry),
-            "clear": (["clear"], clear_entries),
-            "clip": (["clip"], copy_output),
-            "commit": (["c", "commit"], write_db),  # not implemented
-            "date": (["d", "date"], set_date),
-            "help": (["h", "help"], self.help_msg),
-            "list": (["ls", "list"], list_categories_and_tasks),
-            "outlook": (["o", "outlook"], import_from_outlook),
-            "null_cmd": ([""], None),
-            "preview": (["p", "preview"], preview_output),
-            "quit": (["q", "quit"], exit),
-            "scale": (["s", "scale"], scale_time_entries),
-            "undo": (["z", "undo"], undo_last),
-        }
         self.date = datetime.date.today()
-        exit.__doc__ = "Quit"
         self.config = load_config()
         self.outlook_item = None
-
-    def get_user_input(self, outlook_item=None, input_str: str = "> ") -> Optional[int]:
-        user_input: str = input(input_str)
-        match user_input.split(" "):
-            case [str(duration), *_] if is_float(duration):
-                add_entry(self, user_input, outlook_item)
-                return 1
-            case [alias, *_] if self._is_alias(alias, "add"):
-                # self.command_list['help'][1](command='add')
-                self.help_msg(command="add")
-            case [alias, *_] if self._is_alias(alias, "clear"):
-                clear_entries(self)
-            case [alias, *_] if self._is_alias(alias, "clip"):
-                copy_output(self)
-            case [alias, *_] if self._is_alias(alias, "commit"):
-                write_db(self)
-            case [alias] if self._is_alias(alias, "date"):
-                set_date(self)
-            case [alias, str(date_input)] if self._is_alias(alias, "date"):
-                set_date(self, date_input)
-            case [alias, *_] if self._is_alias(alias, "list"):
-                list_categories_and_tasks(self)
-            case [alias] if self._is_alias(alias, "outlook"):
-                import_from_outlook(self)
-            case [alias, *_] if self._is_alias(alias, "preview"):
-                preview_output(self)
-            case [alias, str(scale_target)] if self._is_alias(alias, "scale"):
-                if is_float(scale_target):
-                    scale_time_entries(self, float(scale_target))
-                else:
-                    raise TypeError("Invalid argument, scale_target must be float")
-            case [alias, *_] if self._is_alias(alias, "undo"):
-                undo_last(self)
-            case [alias, *_] if self._is_alias(alias, "quit"):
-                if self.command_list["quit"] is not None:
-                    self.command_list["quit"][1]()
-                return 0
-            case [alias, str(command)] if self._is_alias(alias, "help"):
-                for name, cmd in self.command_list.items():
-                    if self._is_alias(command, name):
-                        self.help_msg(command=name)
-                        return None
-                raise ValueError("Command not found. Type 'help' for list.")
-            case [alias] if self._is_alias(alias, "help"):
-                self.help_msg()
-            case [alias] if self._is_alias(alias, "null_cmd"):  # pragma: no cover
-                add_entry(self, user_input, outlook_item)
-                return 1
-            case _:
-                raise ValueError(f'Invalid input: "{user_input}"')
-
-        return None
-
-    def _is_alias(self, alias: str, command: str) -> bool:
-        """Test if a user command is an alias for a known command."""
-        if command not in self.command_list.keys():
-            return False
-        return alias.lower() in self.command_list[command][0]
-
-    def _set_outlook_mode(self) -> None:
-        """Set console mode to add items from outlook."""
-        replace_commands: list[str] = ["outlook", "date", "quit"]
-        self.default_commands = dict()
-        for cmd in replace_commands:
-            self.default_commands[cmd] = self.command_list.pop(cmd)
-
-        self.command_list["quit"] = (
-            self.default_commands["quit"][0],
-            self._set_normal_mode,
-        )
-
-    def _set_normal_mode(self) -> None:
-        """Return console to normal mode."""
-        for cmd in self.default_commands.keys():
-
-            self.command_list[cmd] = self.default_commands[cmd]
-
-    def help_msg(self, command=None):
-        """Display this help message. Type help <command> for detail."""
-        if command:
-            print(self.command_list[command][1].__doc__)
-        else:
-            for _, function in self.command_list.items():
-                # ignore non-implemented functions
-                if function[1] is None:  # pragma: no cover
-                    continue  # pragma: no cover
-                summary_doc = function[1].__doc__.split("\n")[0]
-                print(f"{function[0]}\t-\t{summary_doc}")
 
     @property
     def total_duration(self) -> float:
@@ -325,7 +162,6 @@ def add_entry(console, user_input: str) -> None:
     if entry_args and entry_args["duration"] != 0:
         console.time_entries.append(TimeEntry(console, date=console.date, **entry_args))
         print(console.time_entries[-1])
-
 
 
 @ConsoleCommand(name="clear")
@@ -529,61 +365,111 @@ def import_from_outlook(console: ConsoleSession) -> None:
 # TODO: Rename with leading underscore, organize
 
 
-def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]:
-    """Parse a user input into a time entry.
+def create_default_config():
+    """Create a default configuration file"""
+    # Ensure we don't accidentally overwrite config
+    if os.path.isfile(CONFIG_FILE):
+        raise FileExistsError(f"Config file '{CONFIG_FILE}' already exists!")
+    config = configparser.ConfigParser(allow_no_value=True)
+    user_email: str = input("Enter your email to connect to outlook: ")
+    config["outlook_options"] = {
+        "email": user_email,
+        "calendar_name": "Calendar",
+        "# skip events with given status codes, comma separated list": None,
+        "# 0 = free": None,
+        "# 1 = tentative": None,
+        "# 2 = busy": None,
+        "# 3 = out of office": None,
+        "# 4 = working elsewhere": None,
+        "skip_event_status": "0, 3",
+        "skip_all_day_events": "yes",
+        "# use comma separated list of calendar event names to be skipped": None,
+        "skip_event_names": "",
+    }
+    config["general_options"] = {
+        "max_entry_duration": "9",
+        "default_category": "2",
+        "default_task": "d",
+    }
+    config["categories"] = {
+        2: "Deep Work",
+        3: "Email",
+        4: "Meetings",
+    }
+    config["tasks"] = {
+        "i": "Incidental",
+        "d": "Default Task",
+    }
+    config_path: str = os.path.dirname(CONFIG_FILE)
+    if not os.path.exists(config_path):  # pragma: no cover
+        os.mkdir(config_path)
+    with open(CONFIG_FILE, "w") as config_file_handle:
+        config.write(config_file_handle)
 
-    Returns None for blank entry
-    Else returns a dict to be passed to a new TimeEntry"""
-    if raw_input == "":
+    return CONFIG_FILE
+
+
+def disp_dict(dictionary: dict, dict_name: str):  # pragma: no cover
+    """Display items in a dict"""
+    print(f"{Style.BRIGHT}{dict_name}{Style.NORMAL}: ")
+    for key, value in dictionary.items():
+        print(f"{Fore.BLUE}{key}{Fore.RESET}: {value}")
+
+
+def get_outlook_items(search_date: datetime.date, calendar_name: str, outlook_account: str):
+    """Read calendar items from Outlook."""
+    # connect to outlook
+    import pywintypes
+    import win32com.client
+
+    # TODO: Move to separate function
+    try:
+        outlook = win32com.client.Dispatch("Outlook.Application")
+        namespace = outlook.GetNamespace("MAPI")
+    except pywintypes.com_error as err:
+        print(f"Error connecting to Outlook Namespace: {err}")
         return None
-    user_input: List[str] = raw_input.split(" ")
-    duration = float(user_input[0])
-    if duration > console.config.max_duration:
-        raise ValueError("You're working too much.")
-    if duration < 0:
-        raise ValueError("You can't unwork.")
-    time_entry_arguments: dict = {"duration": duration}
-    entry_args: List[str] = user_input[1:]
-    match entry_args:
-        # No arguments, add entry with all defaults
-        case ([] | "" | None):
-            pass
-        # All arguments including comment
-        case (str(cat_key), str(task), *comment) if (
-            is_float(cat_key)
-            and int(cat_key) in console.config.category_list.keys()
-            and task.lower() in console.config.task_list.keys()
-        ):
-            time_entry_arguments["category"] = int(cat_key)
-            time_entry_arguments["task"] = task
-            if comment:
-                time_entry_arguments["comment"] = " ".join(comment).strip()
-        # Category argument, no task argument
-        case (str(cat_key), *comment) if (
-            is_float(cat_key) and int(cat_key) in console.config.category_list.keys()
-        ):
-            time_entry_arguments["category"] = int(cat_key)
-            if comment:
-                time_entry_arguments["comment"] = " ".join(comment).strip()
-        # task argument, no category argument
-        case (str(task), *comment) if (
-            not is_float(task) and task.lower() in console.config.task_list.keys()
-        ):
-            time_entry_arguments["task"] = task
-            if comment:
-                time_entry_arguments["comment"] = " ".join(comment).strip()
-        # Comment only
-        case (str(cat_key), str(task), *comment) if (
-            not is_float(cat_key) and task.lower() not in console.config.task_list.keys()
-        ):
-            new_comment: str = (cat_key + " " + task + " " + " ".join(comment)).strip()
-            if new_comment:
-                time_entry_arguments["comment"] = new_comment
-        case comment:
-            time_entry_arguments["comment"] = " ".join(comment).strip()
-            #  raise ValueError("Invalid arguments for time entry")
+    try:
+        acct = namespace.Folders.Item(outlook_account)
+    except pywintypes.com_error as err:
+        print(f'Error connecting to account "{outlook_account}": {err}')
+        return None
+    try:
+        calendar = acct.Folders(calendar_name)
+    except pywintypes.com_error as err:
+        print(f'Calendar with name "{calendar_name}" not found: {err}')
+        return None
 
-    return time_entry_arguments
+    # Time format string requried by MAPI to filter by date
+    MAPI_TIME_FORMAT: str = "%m-%d-%Y %I:%M %p"
+    cal_items = calendar.Items
+    cal_items.Sort("Start", False)
+    cal_items.IncludeRecurrences = True
+    search_end: datetime.date = search_date + datetime.timedelta(days=1)
+    search_str: str = "".join(
+        [
+            "[Start] >= '",
+            search_date.strftime(MAPI_TIME_FORMAT),
+            "' AND [End] <= '",
+            search_end.strftime(MAPI_TIME_FORMAT),
+            "'",
+        ]
+    )
+
+    cal_filtered = cal_items.Restrict(search_str)
+
+    return cal_filtered
+
+
+def is_float(item: str) -> bool:
+    """Determine if a string represents a float."""
+    if not isinstance(item, (str, int, float)):
+        raise TypeError
+    try:
+        float(item)
+        return True
+    except ValueError:
+        return False
 
 
 def load_config(config_file=CONFIG_FILE) -> Config:
@@ -649,68 +535,61 @@ def load_config(config_file=CONFIG_FILE) -> Config:
     return config
 
 
-def get_outlook_items(search_date: datetime.date, calendar_name: str, outlook_account: str):
-    """Read calendar items from Outlook."""
-    # connect to outlook
-    import pywintypes
-    import win32com.client
+def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]:
+    """Parse a user input into a time entry.
 
-    # TODO: Move to separate function
-    try:
-        outlook = win32com.client.Dispatch("Outlook.Application")
-        namespace = outlook.GetNamespace("MAPI")
-    except pywintypes.com_error as err:
-        print(f"Error connecting to Outlook Namespace: {err}")
+    Returns None for blank entry
+    Else returns a dict to be passed to a new TimeEntry"""
+    if raw_input == "":
         return None
-    try:
-        acct = namespace.Folders.Item(outlook_account)
-    except pywintypes.com_error as err:
-        print(f'Error connecting to account "{outlook_account}": {err}')
-        return None
-    try:
-        calendar = acct.Folders(calendar_name)
-    except pywintypes.com_error as err:
-        print(f'Calendar with name "{calendar_name}" not found: {err}')
-        return None
+    user_input: List[str] = raw_input.split(" ")
+    duration = float(user_input[0])
+    if duration > console.config.max_duration:
+        raise ValueError("You're working too much.")
+    if duration < 0:
+        raise ValueError("You can't unwork.")
+    time_entry_arguments: dict = {"duration": duration}
+    entry_args: List[str] = user_input[1:]
+    match entry_args:
+        # No arguments, add entry with all defaults
+        case ([] | "" | None):
+            pass
+        # All arguments including comment
+        case (str(cat_key), str(task), *comment) if (
+            is_float(cat_key)
+            and int(cat_key) in console.config.category_list.keys()
+            and task.lower() in console.config.task_list.keys()
+        ):
+            time_entry_arguments["category"] = int(cat_key)
+            time_entry_arguments["task"] = task
+            if comment:
+                time_entry_arguments["comment"] = " ".join(comment).strip()
+        # Category argument, no task argument
+        case (str(cat_key), *comment) if (
+            is_float(cat_key) and int(cat_key) in console.config.category_list.keys()
+        ):
+            time_entry_arguments["category"] = int(cat_key)
+            if comment:
+                time_entry_arguments["comment"] = " ".join(comment).strip()
+        # task argument, no category argument
+        case (str(task), *comment) if (
+            not is_float(task) and task.lower() in console.config.task_list.keys()
+        ):
+            time_entry_arguments["task"] = task
+            if comment:
+                time_entry_arguments["comment"] = " ".join(comment).strip()
+        # Comment only
+        case (str(cat_key), str(task), *comment) if (
+            not is_float(cat_key) and task.lower() not in console.config.task_list.keys()
+        ):
+            new_comment: str = (cat_key + " " + task + " " + " ".join(comment)).strip()
+            if new_comment:
+                time_entry_arguments["comment"] = new_comment
+        case comment:
+            time_entry_arguments["comment"] = " ".join(comment).strip()
+            #  raise ValueError("Invalid arguments for time entry")
 
-    # Time format string requried by MAPI to filter by date
-    MAPI_TIME_FORMAT: str = "%m-%d-%Y %I:%M %p"
-    cal_items = calendar.Items
-    cal_items.Sort("Start", False)
-    cal_items.IncludeRecurrences = True
-    search_end: datetime.date = search_date + datetime.timedelta(days=1)
-    search_str: str = "".join(
-        [
-            "[Start] >= '",
-            search_date.strftime(MAPI_TIME_FORMAT),
-            "' AND [End] <= '",
-            search_end.strftime(MAPI_TIME_FORMAT),
-            "'",
-        ]
-    )
-
-    cal_filtered = cal_items.Restrict(search_str)
-
-    return cal_filtered
-
-
-def disp_dict(dictionary: dict, dict_name: str):  # pragma: no cover
-    """Display items in a dict"""
-    print(f"{Style.BRIGHT}{dict_name}{Style.NORMAL}: ")
-    for key, value in dictionary.items():
-        print(f"{Fore.BLUE}{key}{Fore.RESET}: {value}")
-
-
-def is_float(item: str) -> bool:
-    """Determine if a string represents a float."""
-    if not isinstance(item, (str, int, float)):
-        raise TypeError
-    try:
-        float(item)
-        return True
-    except ValueError:
-        return False
-
+    return time_entry_arguments
 
 ######################
 # DATABASE FUNCTIONS #
