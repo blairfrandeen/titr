@@ -84,18 +84,6 @@ class MockTimeEntry:
 
 
 @pytest.mark.parametrize("item, expected", [
-    (("d", "date"), True),
-    (("o", "outlook"), True),
-    (("quit", "quit"), True),
-    (("x", "not a command"), False),
-    (("?", "undo"), False),
-    ])
-def test_is_alias(console, item, expected):
-    assert console._is_alias(*item) is expected
-
-
-
-@pytest.mark.parametrize("item, expected", [
     ("yankee", False),
     ("dOODlE", False),
     ("KLJF#*(@#!!", False),
@@ -143,7 +131,7 @@ def test_scale_duration(console, capsys, initial_times, user_input, expected_tim
             assert entry.duration == expected_times[index]
     else:
         with pytest.raises(TypeError):
-            titr.scale_time_entries(user_input)
+            titr.scale_time_entries(console, user_input)
 
 
 def test_preview(console, time_entry, capsys):
@@ -162,22 +150,6 @@ def test_copy(console, time_entry):
     assert "test entry" in pyperclip.paste()
     assert len(clipboard.split("\n")) == 3
     assert len(clipboard.split("\n")[0].split("\t")) == 5
-
-
-def test_set_outlook_mode(console):
-    console._set_outlook_mode()
-    cmd_list = console.command_list
-    assert "outlook" not in cmd_list.keys()
-    assert "date" not in cmd_list.keys()
-    assert cmd_list["quit"][1] == console._set_normal_mode
-
-    # def test_set_normal_mode(console):
-    console._set_normal_mode()
-    cmd_list = console.command_list
-    assert "outlook" in cmd_list.keys()
-    assert "date" in cmd_list.keys()
-    assert cmd_list["quit"][1] == exit
-    assert cmd_list["null_cmd"][1] is None
 
 
 def test_time_entry(console):
@@ -310,90 +282,6 @@ def test_add_entry(console, monkeypatch):
     mock_parse["duration"] = 4
     titr.add_entry(console, mock_inputs)
     assert console.time_entries[1].duration == 4
-
-def test_help_msg(console, monkeypatch, capsys):
-    def _add_entry():  # pragma: no cover
-        """add"""
-        return None
-
-    def _clear():  # pragma: no cover
-        """clear"""
-        return None
-
-    _command_list = {
-        "add": (["add"], _add_entry),
-        "clear": (["clear"], _clear),
-    }
-    monkeypatch.setattr(console, "command_list", _command_list)
-    console.help_msg()
-    captured = capsys.readouterr()
-    assert "['add']" in captured.out
-
-    for cmd in _command_list.keys():
-        console.help_msg(command=cmd)
-        captured = capsys.readouterr()
-        assert cmd in captured.out
-
-
-@pytest.mark.xfail
-@pytest.mark.parametrize("cmd",
-[
-    "help, I'm a bug",
-    ".25*923",
-    "Y",
-    "45e12",
-    "-2 4 g 'negative work'",
-])
-def test_get_user_input_invalid(cmd, monkeypatch, console):
-    monkeypatch.setattr("builtins.input", lambda _: cmd)
-    with pytest.raises(ValueError):
-        console.get_user_input()
-
-
-def test_get_user_input(console, monkeypatch, capsys):
-    valid_commands = {
-        #  "clear": ["clear"],
-        #  "copy_output": ["clip"],
-        #  'commit':   ['c', 'commit'],
-        #  "set_date": ["d", "date", "D", "d -1", "date 2013-08-05"],
-        #  "import_from_outlook": ["O", "outlook"],
-        #  "preview_output": ["p", "preview"],
-        #  "list_categories_and_tasks": ["ls", "list"],
-        #  "undo_last": ["z", "undo"],
-        #  "scale_time_entries": ["s 9", "scale 10"],
-        "help_msg": ["h", "help", "help scale", "help date", "add"],
-        #  "_parse_new_entry": [".5 1 i j", "1 2 g test"],
-        #  'exit':     ["q", "quit"],
-    }
-    for cmd, aliases in valid_commands.items():
-
-        def _mock_alias_function(*args, **kwargs):
-            print(f"mock alias function: {cmd}")
-
-        monkeypatch.setattr(console, cmd, _mock_alias_function)
-        for alias in aliases:
-            monkeypatch.setattr("builtins.input", lambda _: alias)
-            console.get_user_input()
-            captured = capsys.readouterr()
-            assert f"mock alias function: {cmd}" in captured.out
-
-    monkeypatch.setattr("builtins.input", lambda _: "help me!")
-    with pytest.raises(ValueError):
-        console.get_user_input()
-
-    monkeypatch.setattr("builtins.input", lambda _: "quit")
-    with pytest.raises(SystemExit):
-        console.get_user_input()
-
-    def _mock_normal_mode():
-        return None
-
-    monkeypatch.setattr(console, "_set_normal_mode", _mock_normal_mode)
-    monkeypatch.setitem(
-        console.command_list, "quit", (["q", "quit"], console._set_normal_mode)
-    )
-    assert console.get_user_input() == 0
-
 
 @pytest.mark.parametrize("test_input, expected", [
     (None, datetime.date.today()),

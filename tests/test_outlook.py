@@ -180,14 +180,11 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
         print("Mode changed.")
 
     monkeypatch.setattr(titr, "get_outlook_items", _mock_get_outlook_items)
-    monkeypatch.setattr(console, "_set_outlook_mode", _mock_set_mode)
-    monkeypatch.setattr(console, "_set_normal_mode", _mock_set_mode)
     console.config.skip_event_names = ['Filtered Event']
 
     def _mock_user_input(**kwargs):
         return 0
 
-    monkeypatch.setattr(console, "get_user_input", _mock_user_input)
     with pytest.raises(KeyError):
         titr.import_from_outlook(console)
 
@@ -211,19 +208,3 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
             "Working Elsewhere",
         ]:
             assert subject in captured.out
-
-
-def test_set_outlook_mode(console):
-    console._set_outlook_mode()
-    cmd_list = console.command_list
-    assert "outlook" not in cmd_list.keys()
-    assert "date" not in cmd_list.keys()
-    assert cmd_list["quit"][1] == console._set_normal_mode
-
-    # def test_set_normal_mode(console):
-    console._set_normal_mode()
-    cmd_list = console.command_list
-    assert "outlook" in cmd_list.keys()
-    assert "date" in cmd_list.keys()
-    assert cmd_list["quit"][1] == exit
-    assert cmd_list["null_cmd"][1] is None
