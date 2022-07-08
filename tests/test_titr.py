@@ -83,23 +83,26 @@ class MockTimeEntry:
         return self_str
 
 
-@pytest.mark.parametrize("item, expected", [
-    ("yankee", False),
-    ("dOODlE", False),
-    ("KLJF#*(@#!!", False),
-    (".34", True),
-    (".23191", True),
-    ("0", True),
-    ("-0", True),
-    ("99", True),
-    ("4e5", True),
-    ("inf", True),
-    (5, True),
-    (4.1, True),
-    (-4.23e-5, True),
-    (False, True),
-    ("NaN", True),
-    ])
+@pytest.mark.parametrize(
+    "item, expected",
+    [
+        ("yankee", False),
+        ("dOODlE", False),
+        ("KLJF#*(@#!!", False),
+        (".34", True),
+        (".23191", True),
+        ("0", True),
+        ("-0", True),
+        ("99", True),
+        ("4e5", True),
+        ("inf", True),
+        (5, True),
+        (4.1, True),
+        (-4.23e-5, True),
+        (False, True),
+        ("NaN", True),
+    ],
+)
 def test_is_float(item, expected):
     assert titr.is_float(item) is expected
 
@@ -111,18 +114,28 @@ def test_float_bad_inputs():
             titr.is_float(item)
 
 
-@pytest.mark.parametrize("initial_times, user_input, expected_times", [
-    ([2, 2], "5", [2.5, 2.5]),
-    ([2, 2], "4", [2, 2]),
-    ([2, ], "5", [5],),
-    ([3, 4], "6", [3 - 3 / 7, 4 - 4 / 7]),
-    ([1, 2, 3], "7", [7 / 6, 14 / 6, 3.5]),
-    ([4, 5, 6, 2], "17", [4, 5, 6, 2]),
-    ([], "39", []),
-    ([1,2,3], "not a float", None),
-    ])
+@pytest.mark.parametrize(
+    "initial_times, user_input, expected_times",
+    [
+        ([2, 2], "5", [2.5, 2.5]),
+        ([2, 2], "4", [2, 2]),
+        (
+            [
+                2,
+            ],
+            "5",
+            [5],
+        ),
+        ([3, 4], "6", [3 - 3 / 7, 4 - 4 / 7]),
+        ([1, 2, 3], "7", [7 / 6, 14 / 6, 3.5]),
+        ([4, 5, 6, 2], "17", [4, 5, 6, 2]),
+        ([], "39", []),
+        ([1, 2, 3], "not a float", TypeError),
+        ([1, 2, 3], "0", ValueError),
+    ],
+)
 def test_scale_duration(console, capsys, initial_times, user_input, expected_times):
-    if expected_times is not None:
+    if not isinstance(expected_times, type):
         console.time_entries = []
         for duration in initial_times:
             console.time_entries.append(titr.TimeEntry(console, duration))
@@ -130,7 +143,7 @@ def test_scale_duration(console, capsys, initial_times, user_input, expected_tim
         for index, entry in enumerate(console.time_entries):
             assert entry.duration == expected_times[index]
     else:
-        with pytest.raises(TypeError):
+        with pytest.raises(expected_times):
             titr.scale_time_entries(console, user_input)
 
 
@@ -283,17 +296,21 @@ def test_add_entry(console, monkeypatch):
     titr.add_entry(console, mock_inputs)
     assert console.time_entries[1].duration == 4
 
-@pytest.mark.parametrize("test_input, expected", [
-    (None, datetime.date.today()),
-    ("1984-06-17", datetime.date(1984, 6, 17)),
-    ("-1", datetime.date.today() + datetime.timedelta(days=-1)),
-    ("-7", datetime.date.today() + datetime.timedelta(days=-7)),
-    ("0", datetime.date.today()),
-    ("12", None),
-    ("not a date", None),
-    ("6/17/84", None),
-    ("2121-04-23", None),
-    ])
+
+@pytest.mark.parametrize(
+    "test_input, expected",
+    [
+        (None, datetime.date.today()),
+        ("1984-06-17", datetime.date(1984, 6, 17)),
+        ("-1", datetime.date.today() + datetime.timedelta(days=-1)),
+        ("-7", datetime.date.today() + datetime.timedelta(days=-7)),
+        ("0", datetime.date.today()),
+        ("12", None),
+        ("not a date", None),
+        ("6/17/84", None),
+        ("2121-04-23", None),
+    ],
+)
 def test_set_date(test_input, expected):
     if expected is not None:
         titr.set_date(console, test_input)

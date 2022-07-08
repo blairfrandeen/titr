@@ -16,6 +16,7 @@ from typing import Optional, Tuple, Dict, List, Callable, Any
 
 from __init__ import __version__
 from colorama import Fore, Style
+
 # TODO: import datum_console as dc
 from datum_console import (
     ConsoleCommand,
@@ -75,7 +76,9 @@ class TimeEntry:
         date: datetime.date = datetime.date.today(),
     ) -> None:
         self.duration: float = duration
-        self.category = session.config.default_category if category is None else category
+        self.category = (
+            session.config.default_category if category is None else category
+        )
         self.task = session.config.default_task if task is None else task
         self.comment: str = comment
         self.date: datetime.date = date
@@ -116,7 +119,9 @@ class TimeEntry:
                 fmt, al = ".2f", "<"
             else:
                 fmt, al = "", "<"
-            self_str += "{i:{al}{wd}{fmt}}".format(i=item, al=al, fmt=fmt, wd=COLUMN_WIDTHS[index])
+            self_str += "{i:{al}{wd}{fmt}}".format(
+                i=item, al=al, fmt=fmt, wd=COLUMN_WIDTHS[index]
+            )
 
         return self_str.strip()
 
@@ -124,6 +129,7 @@ class TimeEntry:
 #####################
 # CONSOLE FUNCTIONS #
 #####################
+
 
 def time_entry_pattern(user_input: str) -> bool:
     return is_float(user_input.split(" ")[0])
@@ -213,10 +219,12 @@ def preview_output(console: ConsoleSession) -> None:
 
 
 @ConsoleCommand(name="scale", aliases=["s"])
-def scale_time_entries(console: ConsoleSession, target_total: str=None) -> None:
+def scale_time_entries(console: ConsoleSession, target_total: str = None) -> None:
     """Scale time entries by weighted average to sum to a target total duration."""
     if not is_float(target_total):
         raise TypeError(f"Cannot convert {target_total} to float.")
+    if float(target_total) == 0:
+        raise ValueError(f"Cannot scale to zero.")
     unscaled_total: float = sum([entry.duration for entry in console.time_entries])
     scale_amount: float = float(target_total) - unscaled_total
     if scale_amount == 0:
@@ -231,7 +239,7 @@ def scale_time_entries(console: ConsoleSession, target_total: str=None) -> None:
 
 
 @ConsoleCommand(name="date", aliases=["d"])
-def set_date(console, datestr: str=None) -> None:
+def set_date(console, datestr: str = None) -> None:
     """Set the date for time entries.
 
     Enter 'date' with no arguments to set date to today.
@@ -323,7 +331,10 @@ def import_from_outlook(console: ConsoleSession) -> None:
         # console._set_outlook_mode()
         for item in outlook_items:
             if (
-                (item.AllDayEvent is True and console.config.skip_all_day_events is True)
+                (
+                    item.AllDayEvent is True
+                    and console.config.skip_all_day_events is True
+                )
                 or item.Subject in console.config.skip_event_names
                 or item.BusyStatus in console.config.skip_event_status
             ):
@@ -416,7 +427,9 @@ def disp_dict(dictionary: dict, dict_name: str):  # pragma: no cover
         print(f"{Fore.BLUE}{key}{Fore.RESET}: {value}")
 
 
-def get_outlook_items(search_date: datetime.date, calendar_name: str, outlook_account: str):
+def get_outlook_items(
+    search_date: datetime.date, calendar_name: str, outlook_account: str
+):
     """Read calendar items from Outlook."""
     # connect to outlook
     import pywintypes
@@ -524,13 +537,17 @@ def load_config(config_file=CONFIG_FILE) -> Config:
     config.outlook_account = parser["outlook_options"]["email"]
     config.calendar_name = parser["outlook_options"]["calendar_name"]
     config.skip_event_names = [
-        event.strip() for event in parser["outlook_options"]["skip_event_names"].split(",")
+        event.strip()
+        for event in parser["outlook_options"]["skip_event_names"].split(",")
     ]
     # TODO: Error handling
     config.skip_event_status = [
-        int(status) for status in parser["outlook_options"]["skip_event_status"].split(",")
+        int(status)
+        for status in parser["outlook_options"]["skip_event_status"].split(",")
     ]
-    config.skip_all_day_events = parser.getboolean("outlook_options", "skip_all_day_events")
+    config.skip_all_day_events = parser.getboolean(
+        "outlook_options", "skip_all_day_events"
+    )
 
     return config
 
@@ -580,7 +597,8 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]
                 time_entry_arguments["comment"] = " ".join(comment).strip()
         # Comment only
         case (str(cat_key), str(task), *comment) if (
-            not is_float(cat_key) and task.lower() not in console.config.task_list.keys()
+            not is_float(cat_key)
+            and task.lower() not in console.config.task_list.keys()
         ):
             new_comment: str = (cat_key + " " + task + " " + " ".join(comment)).strip()
             if new_comment:
@@ -591,10 +609,13 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]
 
     return time_entry_arguments
 
+
 ######################
 # DATABASE FUNCTIONS #
 ######################
-def db_initialize(database_file: str = TITR_DB, test_flag: bool = False) -> sqlite3.Connection:
+def db_initialize(
+    database_file: str = TITR_DB, test_flag: bool = False
+) -> sqlite3.Connection:
     """Write the sessions time entries to a database."""
     db_connection = sqlite3.connect(database_file)
     cursor = db_connection.cursor()
@@ -669,7 +690,9 @@ def db_populate_task_category_lists(
     db_connection.commit()
 
 
-def db_session_metadata(db_connection: sqlite3.Connection, test_flag: bool = False) -> int:
+def db_session_metadata(
+    db_connection: sqlite3.Connection, test_flag: bool = False
+) -> int:
     """Make entry in session table and return the session id."""
     cursor = db_connection.cursor()
     new_entry: str = """--sql
