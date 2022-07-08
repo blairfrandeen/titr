@@ -250,6 +250,7 @@ def set_date(console, datestr: str = None) -> None:
     """
     if not datestr:
         console.date = datetime.date.today()
+        print(f"Date set to {console.date.isoformat()}")
         return None
     new_date: Optional[datetime.date] = None
     try:
@@ -266,7 +267,7 @@ def set_date(console, datestr: str = None) -> None:
         raise ValueError("Date cannot be in the future")
 
     console.date = new_date
-    print(f"Date set to {new_date.isoformat()}")
+    print(f"Date set to {console.date.isoformat()}")
 
 
 @ConsoleCommand(name="undo", aliases=["u", "z"])

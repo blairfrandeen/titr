@@ -305,13 +305,15 @@ def test_add_entry(console, monkeypatch):
         ("-1", datetime.date.today() + datetime.timedelta(days=-1)),
         ("-7", datetime.date.today() + datetime.timedelta(days=-7)),
         ("0", datetime.date.today()),
+        ("", datetime.date.today()),
         ("12", None),
         ("not a date", None),
         ("6/17/84", None),
         ("2121-04-23", None),
     ],
 )
-def test_set_date(test_input, expected):
+def test_set_date(console, test_input, expected):
+    console.date = datetime.date(1941, 12, 7)  # set to arbitrary wrong date.
     if expected is not None:
         titr.set_date(console, test_input)
         assert console.date == expected
