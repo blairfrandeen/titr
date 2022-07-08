@@ -219,7 +219,7 @@ def preview_output(console: ConsoleSession) -> None:
 
 
 @ConsoleCommand(name="scale", aliases=["s"])
-def scale_time_entries(console: ConsoleSession, target_total: str = None) -> None:
+def scale_time_entries(console: ConsoleSession, target_total: str) -> None:
     """Scale time entries by weighted average to sum to a target total duration."""
     if not is_float(target_total):
         raise TypeError(f"Cannot convert {target_total} to float.")
