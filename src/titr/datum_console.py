@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from typing import Callable, Optional, Type
 
 
 ####################
@@ -117,7 +117,7 @@ def get_input(
     return exec_cmd
 
 
-_PATTERN_LIST: dict[str, _ConsolePattern] = dict()
+_PATTERN_LIST: dict[str, Type[ConsolePattern]] = dict()
 _COMMAND_LIST: dict = dict()
 _COMMAND_HISTORY: list[str] = []
 #####################
