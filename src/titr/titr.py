@@ -47,7 +47,7 @@ if args.testdb:
 
 def main() -> None:
     print("Welcome to titr.")
-    cmd_dict = dict()
+    #  cmd_dict = dict()
     cs = ConsoleSession()
     get_input(session_args=cs)
 
@@ -57,8 +57,16 @@ def main() -> None:
 ###########
 @dataclass
 class Config:
+    outlook_account: str = ""
+    default_category: int = 0
+    default_task: str = ""
+    calendar_name: str = ""
+    skip_event_names: list[str] = field(default_factory=list)
+    skip_event_status: list[int] = field(default_factory=list)
     category_list: dict = field(default_factory=dict)
     task_list: dict = field(default_factory=dict)
+    skip_all_day_events: bool = True
+    max_duration: float = 9
 
 
 class ConsoleSession:
@@ -66,7 +74,7 @@ class ConsoleSession:
         self.time_entries: List[TimeEntry] = []
         self.date = datetime.date.today()
         self.config = load_config()
-        self.outlook_item = None
+        self.outlook_item: Optional[Tuple[float, int, str]]
 
     @property
     def total_duration(self) -> float:
@@ -350,8 +358,8 @@ def import_from_outlook(console: ConsoleSession) -> None:
                 or item.BusyStatus in console.config.skip_event_status
             ):
                 continue
-            comment = item.Subject
-            duration = item.Duration / 60  # convert minutes to hours
+            comment: str = item.Subject
+            duration: float = item.Duration / 60  # convert minutes to hours
 
             # TODO: Accept multiple categories
             appt_category = item.Categories.split(",")[0].strip()
