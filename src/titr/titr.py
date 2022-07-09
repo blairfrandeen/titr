@@ -74,7 +74,7 @@ class ConsoleSession:
         self.time_entries: List[TimeEntry] = []
         self.date = datetime.date.today()
         self.config = load_config()
-        self.outlook_item: Optional[Tuple[float, int, str]]
+        self.outlook_item: Optional[Tuple[float, int, str]] = None
 
     @property
     def total_duration(self) -> float:
