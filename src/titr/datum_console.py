@@ -5,12 +5,14 @@ from typing import Callable, Optional
 # PUBLIC FUNCTIONS #
 ####################
 def ConsolePattern(
-    function: Callable = None, pattern: Callable = None, name: str = None
+    function: Optional[Callable] = None,
+    pattern: Optional[Callable] = None,
+    name: Optional[str] = None,
 ) -> Callable:
     """Decorator for commands that match a pattern rather than having an explicit alias."""
 
     if function:
-        return _ConsolePattern(function)
+        return _ConsolePattern(function, pattern)
     else:
 
         def _wrapper(function):
@@ -74,7 +76,7 @@ def patch_command(target: str, source: str):
 
 def get_input(
     session_args=None, prompt: str = ">>", break_commands: list[str] = ["quit"]
-) -> ConsoleCommand:
+) -> Callable:
     cmd_dict = _cmd_dict()
     while True:
         user_input = input(prompt)
@@ -92,7 +94,7 @@ def get_input(
         if exec_cmd is None:
             user_cmd, *args = user_input.split(" ")
             if user_cmd in cmd_dict.keys():
-                exec_cmd: Callable = cmd_dict[user_cmd]
+                exec_cmd = cmd_dict[user_cmd]
                 # if command match, parse args and kwargs
                 for arg in args:
                     if "=" in arg:
@@ -115,7 +117,7 @@ def get_input(
     return exec_cmd
 
 
-_PATTERN_LIST: dict = dict()
+_PATTERN_LIST: dict[str, _ConsolePattern] = dict()
 _COMMAND_LIST: dict = dict()
 _COMMAND_HISTORY: list[str] = []
 #####################
@@ -124,8 +126,11 @@ _COMMAND_HISTORY: list[str] = []
 
 
 class _ConsolePattern:
-    def __init__(self, function: Callable, pattern: Callable, name: str = None):
-        self.name = function.__doc__ if not name else name
+    def __init__(
+        self, function: Callable, pattern: Callable, name: Optional[str] = None
+    ):
+        # TODO: error handling if no name argument and no function.__doc__
+        self.name: str = function.__name__ if not name else name
         self.function: Callable = function
         self.match_pattern = pattern
 
