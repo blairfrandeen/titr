@@ -13,7 +13,7 @@ import datetime
 import os
 import sqlite3
 import sys
-from typing import Optional, Tuple, Dict, List, Callable, Any
+from typing import Optional, Tuple, Dict, List, Any
 
 from __init__ import __version__
 from colorama import Fore, Style
@@ -25,7 +25,6 @@ from datum_console import (
     get_input,
     disable_command,
     enable_command,
-    patch_command,
     set_pattern,
 )
 from dataclasses import dataclass, field
@@ -242,7 +241,7 @@ def scale_time_entries(console: ConsoleSession, target_total: str) -> None:
     if not is_float(target_total):
         raise TypeError(f"Cannot convert {target_total} to float.")
     if float(target_total) == 0:
-        raise ValueError(f"Cannot scale to zero.")
+        raise ValueError("Cannot scale to zero.")
     unscaled_total: float = sum([entry.duration for entry in console.time_entries])
     scale_amount: float = float(target_total) - unscaled_total
     if scale_amount == 0:

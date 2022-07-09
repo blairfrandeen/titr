@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Type
+from typing import Callable, Optional
 
 
 ####################
@@ -9,7 +9,8 @@ def ConsolePattern(
     pattern: Optional[Callable] = None,
     name: Optional[str] = None,
 ) -> Callable:
-    """Decorator for commands that match a pattern rather than having an explicit alias."""
+    """Decorator for commands that match a pattern rather
+    than having an explicit alias."""
 
     if function:
         return _ConsolePattern(function, pattern)
