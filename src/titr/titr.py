@@ -7,6 +7,7 @@ A time tracker CLI.
 https://github.com/blairfrandeen/titr
 """
 
+import argparse
 import configparser
 import datetime
 import os
@@ -30,9 +31,18 @@ from datum_console import (
 from dataclasses import dataclass, field
 
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
-#  TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
-TITR_DB: str = "titr_test.db"
+TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 COLUMN_WIDTHS = [13, 8, 12, 25, 38]
+
+parser = argparse.ArgumentParser(description="titr")
+parser.add_argument(
+    "--testdb",
+    action="store_true",
+    help="use a test database file in the local folder",
+)
+args = parser.parse_args()
+if args.testdb:
+    TITR_DB = "titr_test.db"
 
 
 def main() -> None:
