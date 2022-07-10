@@ -27,13 +27,14 @@ def ConsoleCommand(
     aliases: list[str] = None,
     name: str = None,
     hidden: bool = False,
+    enabled: bool = True,
 ) -> Callable:
     if function:
         return _ConsoleCommand(function)
     else:
 
         def _wrapper(function):
-            return _ConsoleCommand(function, aliases, name, hidden)
+            return _ConsoleCommand(function, aliases, name, hidden, enabled)
 
         return _wrapper
 
@@ -154,6 +155,7 @@ class _ConsoleCommand:
         aliases: list[str] = None,
         name: str = None,
         hidden: bool = False,
+        enabled: bool = True,
     ):
         #  functools.update_wrapper(self, function)
         self.name: str = function.__name__ if not name else name
@@ -162,8 +164,8 @@ class _ConsoleCommand:
         if aliases:
             for alias in aliases:
                 self.aliases.append(alias)
-        self.enabled: bool = True
-        self.hidden = hidden
+        self.enabled: bool = enabled
+        self.hidden = hidden if self.enabled else True
 
         _COMMAND_LIST[self.name] = self
 

@@ -29,6 +29,14 @@ from datum_console import (
 )
 from dataclasses import dataclass, field
 
+try:
+    import pywintypes
+    import win32com.client
+except ImportError:
+    OUTLOOK_ENABLED = False
+else:
+    OUTLOOK_ENABLED = True
+
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 COLUMN_WIDTHS = [13, 8, 12, 25, 38]
@@ -325,7 +333,8 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     print(f"Commited entries to {TITR_DB}.")
 
 
-@ConsoleCommand(name="outlook", aliases=["o"])
+# TODO: Disable command if pywintypes not found
+@ConsoleCommand(name="outlook", aliases=["o"], enabled=OUTLOOK_ENABLED)
 def import_from_outlook(console: ConsoleSession) -> None:
     """Import appointments from outlook."""
     outlook_items = get_outlook_items(
@@ -449,10 +458,8 @@ def get_outlook_items(
     search_date: datetime.date, calendar_name: str, outlook_account: str
 ):
     """Read calendar items from Outlook."""
-    # connect to outlook
-    import pywintypes
-    import win32com.client
 
+    # connect to outlook
     # TODO: Move to separate function
     try:
         outlook = win32com.client.Dispatch("Outlook.Application")
