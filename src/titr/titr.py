@@ -335,8 +335,40 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
 
 @ConsoleCommand(name="timecard", aliases=["tc"])
 def show_weekly_timecard(console: ConsoleSession) -> None:
-    """Show timecard summary for this week."""
-    pass
+    """Show timecard summary for this week.
+
+    To show summary for a different week, set the date
+    to any day within the week of interest.
+
+    Weeks start on Monday."""
+    week_start: datetime.date = console.date - datetime.timedelta(
+        days=console.date.weekday()
+    )
+    week_end: datetime.date = week_start + datetime.timedelta(days=6)
+    db_connection = sqlite3.connect(TITR_DB)
+    cursor = db_connection.cursor()
+
+    get_week_total_hours: str = """--sql
+        SELECT sum(duration) FROM time_log WHERE
+        date >= (?)
+        AND
+        date <= (?)
+    """
+    cursor.execute(get_week_total_hours, [week_start, week_end])
+    week_total_hours: float = cursor.fetchone()[0]
+
+    get_totals_by_task: str = """--sql
+        SELECT t.name, sum(l.duration) from time_log l
+        JOIN tasks t on t.id = l.task_id
+        WHERE l.date >= (?) and l.date <= (?)
+        GROUP BY task_id;
+    """
+    cursor.execute(get_totals_by_task, [week_start, week_end])
+    totals_by_task: list[tuple[str, float]] = cursor.fetchall()
+    for task in totals_by_task:
+        task_percentage = task[1] / week_total_hours * 100
+        print(f"{task[0]}\t\t{task[1]}\t{round(task_percentage, 1)}%")
+    print(f"{week_total_hours=}")
 
 
 @ConsoleCommand(name="deepwork", aliases=["dw"])
@@ -737,6 +769,11 @@ def db_populate_task_category_lists(
     for key, value in console.config.category_list.items():
         cursor.execute(write_categories, [key, value])
 
+    # TODO: fix this function so that task_id is not
+    # overwritten when a task of the same name is added
+    # the pair id and name should _always_ be persistent
+    # key need not be persistent since the user may opt to
+    # replace keys. Current implementation corrupts data.
     task_id = 0
     for key, value in console.config.task_list.items():
         cursor.execute(write_tasks, [task_id, key, value])
