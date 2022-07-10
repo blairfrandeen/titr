@@ -754,6 +754,56 @@ def db_initialize(
     return db_connection
 
 
+def db_populate_user_table(
+    db_connection: sqlite3.Connection,
+    table: str,
+    key: str,
+    value: str,
+    test_flag: bool = False,
+) -> None:
+    """Populate a single row of a table with a key-value pair.
+
+    Will update an existing entry if the name (value) field is recognized.
+    Otherwise a new entry will be added.
+    Keys will be enforced to be unique."""
+    # Determine the id of the row to populate
+    # Search the table and find the id of the item with a matching name
+    cursor = db_connection.cursor()
+
+    get_primary_key: str = """--sql
+        SELECT id FROM {} WHERE name=(?)
+    """.format(
+        table
+    )
+    cursor.execute(get_primary_key, [value])
+    primary_key_query: Optional[tuple] = cursor.fetchone()
+
+    # If no result, create a new table row
+    if primary_key_query is None:
+        get_last_key: str = "SELECT MAX(id) from {}".format(table)
+        cursor.execute(get_last_key, [])
+        last_key: tuple[Optional[int]] = cursor.fetchone()
+        # start at zero if table is empty:7
+        primary_key: int = 0 if last_key[0] is None else last_key[0] + 1
+    else:
+        primary_key = primary_key_query[0]
+
+    write_table: str = """--sql
+        REPLACE INTO {} (id, key, name) VALUES (?, ?, ?)
+    """.format(
+        table
+    )
+    cursor.execute(write_table, [primary_key, key, value])
+
+    # Ensure that all keys in the table are unique
+    enforce_unique_keys: str = """--sql
+        UPDATE {} SET key=null WHERE id != (?) AND key = (?)
+    """.format(
+        table
+    )
+    cursor.execute(enforce_unique_keys, [primary_key, key])
+
+
 def db_populate_task_category_lists(
     console: ConsoleSession,
     db_connection: sqlite3.Connection,
@@ -766,18 +816,13 @@ def db_populate_task_category_lists(
         REPLACE INTO tasks (id, key, name) VALUES (?, ?, ?)
     """
     cursor = db_connection.cursor()
+    # TODO: Restructure categories table to include a 'key'
+    # column, and use db_populate_user_table to populate it
     for key, value in console.config.category_list.items():
         cursor.execute(write_categories, [key, value])
 
-    # TODO: fix this function so that task_id is not
-    # overwritten when a task of the same name is added
-    # the pair id and name should _always_ be persistent
-    # key need not be persistent since the user may opt to
-    # replace keys. Current implementation corrupts data.
-    task_id = 0
     for key, value in console.config.task_list.items():
-        cursor.execute(write_tasks, [task_id, key, value])
-        task_id += 1
+        db_populate_user_table(db_connection, "tasks", key, value)
 
     db_connection.commit()
 
