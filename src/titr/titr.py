@@ -333,7 +333,37 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     print(f"Commited entries to {TITR_DB}.")
 
 
-# TODO: Disable command if pywintypes not found
+@ConsoleCommand(name="timecard", aliases=["tc"])
+def show_weekly_timecard(console: ConsoleSession) -> None:
+    """Show timecard summary for this week."""
+    pass
+
+
+@ConsoleCommand(name="deepwork", aliases=["dw"])
+def deep_work(console: ConsoleSession) -> None:
+    """Show total deep work and deep work over past 365 days."""
+    db_connection = sqlite3.connect(TITR_DB)
+    cursor = db_connection.cursor()
+
+    dw_category_id = 2
+    get_dw_total = """--sql
+        SELECT sum(duration) FROM time_log WHERE category_id=(?)
+    """
+    cursor.execute(get_dw_total, [dw_category_id])
+    dw_total = cursor.fetchone()[0]
+    print(f"{dw_total = }")
+    get_dw_last_365 = """--sql
+        SELECT sum(duration) FROM time_log WHERE
+            category_id=(?)
+            AND
+            date>=(?)
+    """
+    last_year = datetime.date.today() - datetime.timedelta(days=365)
+    cursor.execute(get_dw_last_365, [dw_category_id, last_year])
+    dw_last_365 = cursor.fetchone()[0]
+    print(f"{dw_last_365 = }")
+
+
 @ConsoleCommand(name="outlook", aliases=["o"], enabled=OUTLOOK_ENABLED)
 def import_from_outlook(console: ConsoleSession) -> None:
     """Import appointments from outlook."""
