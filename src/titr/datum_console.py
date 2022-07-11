@@ -1,3 +1,4 @@
+import textwrap
 from typing import Callable, Optional
 
 
@@ -225,7 +226,10 @@ def _help_function(*args):
     """Display this help message"""
     cmd_dict = _cmd_dict()
     if len(args) > 1 and args[1] in cmd_dict.keys():
-        print(cmd_dict[args[1]].function.__doc__)
+        docstr = cmd_dict[args[1]].function.__doc__
+        if docstr.startswith("\n"):
+            docstr = docstr[1:]  # Trim newline if it exists
+        print(textwrap.dedent(docstr))
     else:
         for key in sorted(_COMMAND_LIST.keys()):
             cmd = _COMMAND_LIST[key]
