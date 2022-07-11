@@ -384,10 +384,9 @@ def show_weekly_timecard(console: ConsoleSession) -> float:
 
 
 @ConsoleCommand(name="deepwork", aliases=["dw"])
-def deep_work(console: ConsoleSession) -> None:
+def deep_work(console: ConsoleSession) -> float:
     """Show total deep work and deep work over past 365 days."""
-    db_connection = sqlite3.connect(TITR_DB)
-    cursor = db_connection.cursor()
+    cursor = console.db_connection.cursor()
 
     dw_category_id = 2
     get_dw_total = """--sql
@@ -406,6 +405,8 @@ def deep_work(console: ConsoleSession) -> None:
     cursor.execute(get_dw_last_365, [dw_category_id, last_year])
     dw_last_365 = cursor.fetchone()[0]
     print(f"{dw_last_365 = }")
+
+    return dw_total
 
 
 @ConsoleCommand(name="outlook", aliases=["o"], enabled=OUTLOOK_ENABLED)
