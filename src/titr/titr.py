@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 try:
     import pywintypes
     import win32com.client
-except ImportError:
+except ImportError: # pragma: no cover
     OUTLOOK_ENABLED = False
 else:
     OUTLOOK_ENABLED = True
@@ -48,7 +48,7 @@ parser.add_argument(
     help="use a test database file in the local folder",
 )
 args = parser.parse_args()
-if args.testdb:
+if args.testdb: # pragma: no cover
     TITR_DB = "titr_test.db"
 
 
@@ -343,7 +343,7 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
 
 
 @ConsoleCommand(name="timecard", aliases=["tc"])
-def show_weekly_timecard(console: ConsoleSession) -> None:
+def show_weekly_timecard(console: ConsoleSession) -> float:
     """
     Show timecard summary for this week.
 
@@ -355,8 +355,7 @@ def show_weekly_timecard(console: ConsoleSession) -> None:
         days=console.date.weekday()
     )
     week_end: datetime.date = week_start + datetime.timedelta(days=6)
-    db_connection = sqlite3.connect(TITR_DB)
-    cursor = db_connection.cursor()
+    cursor = console.db_connection.cursor()
 
     get_week_total_hours: str = """--sql
         SELECT sum(duration) FROM time_log WHERE
@@ -379,6 +378,8 @@ def show_weekly_timecard(console: ConsoleSession) -> None:
         task_percentage = task[1] / week_total_hours * 100
         print(f"{task[0]}\t\t{task[1]}\t{round(task_percentage, 1)}%")
     print(f"{week_total_hours=}")
+
+    return week_total_hours
 
 
 @ConsoleCommand(name="deepwork", aliases=["dw"])
