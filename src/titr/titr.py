@@ -364,19 +364,20 @@ def show_weekly_timecard(console: ConsoleSession) -> float:
         date <= (?)
     """
     cursor.execute(get_week_total_hours, [week_start, week_end])
-    week_total_hours: float = cursor.fetchone()[0]
+    week_total_hours: Optional[float] = cursor.fetchone()[0]
 
-    get_totals_by_task: str = """--sql
-        SELECT t.name, sum(l.duration) from time_log l
-        JOIN tasks t on t.id = l.task_id
-        WHERE l.date >= (?) and l.date <= (?)
-        GROUP BY task_id;
-    """
-    cursor.execute(get_totals_by_task, [week_start, week_end])
-    totals_by_task: list[tuple[str, float]] = cursor.fetchall()
-    for task in totals_by_task:
-        task_percentage = task[1] / week_total_hours * 100
-        print(f"{task[0]}\t\t{task[1]}\t{round(task_percentage, 1)}%")
+    if week_total_hours is not None:
+        get_totals_by_task: str = """--sql
+            SELECT t.name, sum(l.duration) from time_log l
+            JOIN tasks t on t.id = l.task_id
+            WHERE l.date >= (?) and l.date <= (?)
+            GROUP BY task_id;
+        """
+        cursor.execute(get_totals_by_task, [week_start, week_end])
+        totals_by_task: list[tuple[str, float]] = cursor.fetchall()
+        for task in totals_by_task:
+            task_percentage = task[1] / week_total_hours * 100
+            print(f"{task[0]}\t\t{task[1]}\t{round(task_percentage, 1)}%")
     print(f"{week_total_hours=}")
 
     return week_total_hours
