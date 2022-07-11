@@ -22,8 +22,8 @@ def db_connection():
 
 @pytest.fixture
 def console(monkeypatch, db_connection):
-    cs = titr.ConsoleSession()
     monkeypatch.setattr(titr, "db_initialize", lambda: db_connection)
+    cs = titr.ConsoleSession()
     yield cs
 
 
@@ -54,10 +54,14 @@ def titr_default_config(monkeypatch, tmp_path):
     yield test_config_path
 
 
-@pytest.mark.xfail
+#  @pytest.mark.xfail
 def test_timecard(console):
     # set console to arbitrary date in past
     console.date = datetime.date(2020,8,6) # weekday = 3 (thurs)
+
+    # test case with no entries
+    assert titr.show_weekly_timecard(console) is None
+
     # Add time entries before, after, and within date range
     for date_tuple in [
             (2020,7,1), # before current week
