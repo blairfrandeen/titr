@@ -176,7 +176,8 @@ def outlook_entry_pattern(user_input: str) -> bool:
 
 @ConsolePattern(pattern=time_entry_pattern, name="add_entry")
 def add_entry(console, user_input: str) -> None:
-    """Add a new entry to the time log.
+    """
+    Add a new entry to the time log.
 
     Format is <duration> [<category> <task> <comment>]
     There is no need to type 'add'
@@ -275,7 +276,8 @@ def scale_time_entries(console: ConsoleSession, target_total: str) -> None:
 
 @ConsoleCommand(name="date", aliases=["d"])
 def set_date(console, datestr: str = None) -> None:
-    """Set the date for time entries.
+    """
+    Set the date for time entries.
 
     Enter 'date' with no arguments to set date to today.
     Enter 'date -<n>' where n is an integer to set date n days back
@@ -313,7 +315,12 @@ def undo_last(console) -> None:
 
 @ConsoleCommand(name="write", aliases=["c", "commit"])
 def write_db(console: ConsoleSession) -> None:  # pragma: no cover
-    """Write time entries to the database."""
+    """
+    Write time entries to the database.
+
+    Database is in ~/.titr/titr.db by default. Run titr --testdb
+    to use a test database file in the working directory.
+    """
 
     if len(console.time_entries) == 0:
         raise ValueError("Nothing to commit. Get back to work.")
@@ -337,7 +344,8 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
 
 @ConsoleCommand(name="timecard", aliases=["tc"])
 def show_weekly_timecard(console: ConsoleSession) -> None:
-    """Show timecard summary for this week.
+    """
+    Show timecard summary for this week.
 
     To show summary for a different week, set the date
     to any day within the week of interest.
