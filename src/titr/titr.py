@@ -55,8 +55,8 @@ if args.testdb:
 def main() -> None:
     print("Welcome to titr.")
     #  cmd_dict = dict()
-    cs = ConsoleSession()
-    get_input(session_args=cs)
+    with ConsoleSession() as cs:
+        get_input(session_args=cs)
 
 
 ###########
@@ -82,6 +82,16 @@ class ConsoleSession:
         self.date = datetime.date.today()
         self.config = load_config()
         self.outlook_item: Optional[Tuple[float, int, str]] = None
+        self.db_connection: sqlite3.Connection = db_initialize()
+        # Populate the task and category lists in the database from the titr.cfg
+        # File, which has already been loaded into the console session
+        db_populate_task_category_lists(self)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args) -> None:
+        self.db_connection.close()
 
     @property
     def total_duration(self) -> float:
@@ -307,23 +317,15 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
 
     if len(console.time_entries) == 0:
         raise ValueError("Nothing to commit. Get back to work.")
-    # Establish a connection, and initialize the database if not already done.
-    db_connection: sqlite3.Connection = db_initialize()
 
-    # Populate the task and category lists in the database from the titr.cfg
-    # File, which has already been loaded into the console session
     # TODO: Store task & category lists exclusively in the database
     # modifiable through the program
-    db_populate_task_category_lists(console, db_connection)
 
     # Write metadata about the current session, and get the session id
-    session_id = db_session_metadata(db_connection)
+    session_id = db_session_metadata(console.db_connection)
 
     # Write the time entries to the database
-    db_write_time_log(console, db_connection, session_id)
-
-    # Close the connection
-    db_connection.close()
+    db_write_time_log(console, session_id)
 
     # Copy entries to clipboard in case we are still using Excel
     copy_output(console)
@@ -806,7 +808,6 @@ def db_populate_user_table(
 
 def db_populate_task_category_lists(
     console: ConsoleSession,
-    db_connection: sqlite3.Connection,
 ) -> None:
     """Populate the category & task tables in the sqlite db."""
     write_categories = """--sql
@@ -815,16 +816,16 @@ def db_populate_task_category_lists(
     write_tasks = """--sql
         REPLACE INTO tasks (id, key, name) VALUES (?, ?, ?)
     """
-    cursor = db_connection.cursor()
+    cursor = console.db_connection.cursor()
     # TODO: Restructure categories table to include a 'key'
     # column, and use db_populate_user_table to populate it
     for key, value in console.config.category_list.items():
         cursor.execute(write_categories, [key, value])
 
     for key, value in console.config.task_list.items():
-        db_populate_user_table(db_connection, "tasks", key, value)
+        db_populate_user_table(console.db_connection, "tasks", key, value)
 
-    db_connection.commit()
+    console.db_connection.commit()
 
 
 def db_session_metadata(
@@ -858,11 +859,9 @@ def db_session_metadata(
     return session_id
 
 
-def db_write_time_log(
-    console: ConsoleSession, db_connection: sqlite3.Connection, session_id: int
-) -> None:
+def db_write_time_log(console: ConsoleSession, session_id: int) -> None:
     """Write time entries from console session to database."""
-    cursor = db_connection.cursor()
+    cursor = console.db_connection.cursor()
     write_entry = """--sql
         INSERT INTO time_log (date, duration, category_id, task_id, comment, session_id)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -886,7 +885,7 @@ def db_write_time_log(
                 session_id,
             ],
         )
-    db_connection.commit()
+    console.db_connection.commit()
 
 
 if __name__ == "__main__":
