@@ -4,7 +4,7 @@ import sys
 
 import pytest
 import titr
-from test_titr import console, titr_default_config
+from test_titr import console, titr_default_config, db_connection
 
 if not sys.platform.startswith("win32"):
     pytest.skip(reason="windows only tests", allow_module_level=True)
