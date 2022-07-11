@@ -4,28 +4,12 @@ import pytest
 
 from dataclasses import dataclass
 from titr import (
-    db_initialize,
     db_session_metadata,
     db_populate_task_category_lists,
     db_write_time_log,
     TimeEntry,
 )
-from test_titr import console, titr_default_config
-
-TEST_DB = ":memory:"
-#  TEST_DB = "testdb.db"
-
-
-@pytest.fixture
-def db_connection(monkeypatch):
-    # Remove old database file if it exists
-    if TEST_DB != ":memory:":
-        os.remove(TEST_DB)
-    connection = db_initialize(TEST_DB, test_flag=True)
-    #  connection = sqlite3.connect(TEST_DB, detect_types=sqlite3.PARSE_DECLTYPES)
-    yield connection
-    connection.commit()
-    connection.close()
+from test_titr import console, titr_default_config, db_connection
 
 
 @dataclass
@@ -42,9 +26,9 @@ def test_session_metadata(db_connection, monkeypatch):
         assert db_session_metadata(db_connection, test_flag=True) == session_id + 1
 
 
-def test_populate_tables(console, db_connection):
-    db_populate_task_category_lists(console, db_connection)
-    cursor = db_connection.cursor()
+def test_populate_tables(console):
+    db_populate_task_category_lists(console)
+    cursor = console.db_connection.cursor()
 
     # Check category table columns
     find_cat_columns = """--sql
@@ -65,19 +49,19 @@ def test_populate_tables(console, db_connection):
         assert name in task_cols[index]
 
 
-def test_write_time_log(console, db_connection):
-    db_populate_task_category_lists(console, db_connection)
+def test_write_time_log(console):
+    db_populate_task_category_lists(console)
     console.time_entries.append(
         TimeEntry(console, duration=1, comment="test", task="t", category=9)
     )
 
-    db_write_time_log(console, db_connection, 0)
+    db_write_time_log(console, 0)
     find_entry = """--sql
         SELECT session_id, duration, category_id, task_id, date, comment
         FROM time_log
         WHERE session_id=0
     """
-    cursor = db_connection.cursor()
+    cursor = console.db_connection.cursor()
     cursor.execute(find_entry)
     db_entry = cursor.fetchone()
     cs_entry = console.time_entries[-1]

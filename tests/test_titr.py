@@ -5,9 +5,25 @@ import titr
 import pyperclip
 
 
+TEST_DB = ":memory:"
+#  TEST_DB = "testdb.db"
+
+
 @pytest.fixture
-def console(monkeypatch, titr_default_config):
+def db_connection():
+    # Remove old database file if it exists
+    if TEST_DB != ":memory:":
+        os.remove(TEST_DB)
+    connection = titr.db_initialize(TEST_DB, test_flag=True)
+    yield connection
+    connection.commit()
+    connection.close()
+
+
+@pytest.fixture
+def console(monkeypatch, db_connection):
     cs = titr.ConsoleSession()
+    monkeypatch.setattr(titr, "db_initialize", lambda: db_connection)
     yield cs
 
 
