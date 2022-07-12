@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 try:
     import pywintypes
     import win32com.client
-except ImportError: # pragma: no cover
+except ImportError:  # pragma: no cover
     OUTLOOK_ENABLED = False
 else:
     OUTLOOK_ENABLED = True
@@ -48,7 +48,7 @@ parser.add_argument(
     help="use a test database file in the local folder",
 )
 args = parser.parse_args()
-if args.testdb: # pragma: no cover
+if args.testdb:  # pragma: no cover
     TITR_DB = "titr_test.db"
 
 
@@ -743,7 +743,7 @@ def db_initialize(
     task_table = """--sql
         CREATE TABLE IF NOT EXISTS tasks(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            key TEXT,
+            user_key TEXT,
             name TEXT
         )
     """
@@ -770,7 +770,7 @@ def db_initialize(
 def db_populate_user_table(
     db_connection: sqlite3.Connection,
     table: str,
-    key: str,
+    user_key: str,
     value: str,
     test_flag: bool = False,
 ) -> None:
@@ -802,19 +802,19 @@ def db_populate_user_table(
         primary_key = primary_key_query[0]
 
     write_table: str = """--sql
-        REPLACE INTO {} (id, key, name) VALUES (?, ?, ?)
+        REPLACE INTO {} (id, user_key, name) VALUES (?, ?, ?)
     """.format(
         table
     )
-    cursor.execute(write_table, [primary_key, key, value])
+    cursor.execute(write_table, [primary_key, user_key, value])
 
     # Ensure that all keys in the table are unique
     enforce_unique_keys: str = """--sql
-        UPDATE {} SET key=null WHERE id != (?) AND key = (?)
+        UPDATE {} SET user_key=null WHERE id != (?) AND user_key = (?)
     """.format(
         table
     )
-    cursor.execute(enforce_unique_keys, [primary_key, key])
+    cursor.execute(enforce_unique_keys, [primary_key, user_key])
 
 
 def db_populate_task_category_lists(
@@ -825,16 +825,16 @@ def db_populate_task_category_lists(
         REPLACE INTO categories (id, name) VALUES (?, ?)
     """
     write_tasks = """--sql
-        REPLACE INTO tasks (id, key, name) VALUES (?, ?, ?)
+        REPLACE INTO tasks (id, user_key, name) VALUES (?, ?, ?)
     """
     cursor = console.db_connection.cursor()
     # TODO: Restructure categories table to include a 'key'
     # column, and use db_populate_user_table to populate it
-    for key, value in console.config.category_list.items():
-        cursor.execute(write_categories, [key, value])
+    for user_key, value in console.config.category_list.items():
+        cursor.execute(write_categories, [user_key, value])
 
-    for key, value in console.config.task_list.items():
-        db_populate_user_table(console.db_connection, "tasks", key, value)
+    for user_key, value in console.config.task_list.items():
+        db_populate_user_table(console.db_connection, "tasks", user_key, value)
 
     console.db_connection.commit()
 
@@ -878,11 +878,12 @@ def db_write_time_log(console: ConsoleSession, session_id: int) -> None:
         VALUES (?, ?, ?, ?, ?, ?)
     """
     get_task_id = """--sql
-        SELECT id, key
+        SELECT id, user_key
         FROM tasks
-        WHERE key = (?)
+        WHERE user_key = (?)
     """
     for entry in console.time_entries:
+        # TODO: Handling for no task ID found
         cursor.execute(get_task_id, [entry.task])
         task_id = cursor.fetchone()[0]
         cursor.execute(
