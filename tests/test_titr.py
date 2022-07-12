@@ -57,29 +57,32 @@ def titr_default_config(monkeypatch, tmp_path):
 #  @pytest.mark.xfail
 def test_timecard(console):
     # set console to arbitrary date in past
-    console.date = datetime.date(2020,8,6) # weekday = 3 (thurs)
+    console.date = datetime.date(2020, 8, 6)  # weekday = 3 (thurs)
 
     # test case with no entries
     assert titr.show_weekly_timecard(console) is None
 
     # Add time entries before, after, and within date range
     for date_tuple in [
-            (2020,7,1), # before current week
-            (2020, 8, 2), # sunday before
-            (2020, 8, 3), # monday
-            (2020, 8, 5),
-            (2020, 8, 7),
-            (2020, 8, 9), # sunday
-            (2020, 8, 10), # monday after
-            (2020, 9, 11), # after current week
-       ]:
-        console.time_entries.append(titr.TimeEntry(console, duration=1, date = datetime.date(*date_tuple)))
+        (2020, 7, 1),  # before current week
+        (2020, 8, 2),  # sunday before
+        (2020, 8, 3),  # monday
+        (2020, 8, 5),
+        (2020, 8, 7),
+        (2020, 8, 9),  # sunday
+        (2020, 8, 10),  # monday after
+        (2020, 9, 11),  # after current week
+    ]:
+        console.time_entries.append(
+            titr.TimeEntry(console, duration=1, date=datetime.date(*date_tuple))
+        )
 
     # Commit to the database
     titr.write_db(console)
 
     # Should have 4x one hour entries
     assert titr.show_weekly_timecard(console) == 4
+
 
 def test_default_config(titr_default_config):
     test_config = configparser.ConfigParser()
@@ -233,6 +236,7 @@ def test_undo(console, time_entry):
 
 def test_main(monkeypatch, capsys):
     monkeypatch.setattr("builtins.input", lambda _: "q")
+    monkeypatch.setattr("titr.db_initialize.__defaults__", (TEST_DB, False))
     with pytest.raises(SystemExit):
         titr.main()
 
