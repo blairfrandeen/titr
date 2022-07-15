@@ -36,9 +36,6 @@ def test_populate_tables(console):
     """
     cursor.execute(find_cat_columns)
     category_cols = cursor.fetchall()
-    # TODO: update for id, user_key, name
-    for index, name in enumerate(["id", "name"]):
-        assert name in category_cols[index]
 
     # Check task table columns
     find_task_columns = """--sql
@@ -47,6 +44,7 @@ def test_populate_tables(console):
     cursor.execute(find_task_columns)
     task_cols = cursor.fetchall()
     for index, name in enumerate("id user_key name".split(" ")):
+        assert name in category_cols[index]
         assert name in task_cols[index]
 
 
