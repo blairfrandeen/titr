@@ -771,8 +771,8 @@ def db_initialize(
 def db_populate_user_table(
     db_connection: sqlite3.Connection,
     table: str,
-    user_key: str,
     value: str,
+    user_key: str = None,
     test_flag: bool = False,
 ) -> None:
     """Populate a single row of a table with a key-value pair.
@@ -822,21 +822,14 @@ def db_populate_task_category_lists(
     console: ConsoleSession,
 ) -> None:
     """Populate the category & task tables in the sqlite db."""
-    write_categories = """--sql
-        REPLACE INTO categories (id, name) VALUES (?, ?)
-    """
-    write_tasks = """--sql
-        REPLACE INTO tasks (id, user_key, name) VALUES (?, ?, ?)
-    """
-    cursor = console.db_connection.cursor()
     # TODO: Restructure categories table to include a 'key'
     # column, and use db_populate_user_table to populate it
     for user_key, value in console.config.category_list.items():
-        db_populate_user_table(console.db_connection, "categories", user_key, value)
+        db_populate_user_table(console.db_connection, "categories", value, user_key)
         #  cursor.execute(write_categories, [user_key, value])
 
     for user_key, value in console.config.task_list.items():
-        db_populate_user_table(console.db_connection, "tasks", user_key, value)
+        db_populate_user_table(console.db_connection, "tasks", value, user_key)
 
     console.db_connection.commit()
 
@@ -880,20 +873,27 @@ def db_write_time_log(console: ConsoleSession, session_id: int) -> None:
         VALUES (?, ?, ?, ?, ?, ?)
     """
     get_task_id = """--sql
-        SELECT id, user_key
+        SELECT id
         FROM tasks
+        WHERE user_key = (?)
+    """
+    get_category_id = """--sql
+        SELECT id
+        FROM categories
         WHERE user_key = (?)
     """
     for entry in console.time_entries:
         # TODO: Handling for no task ID found
         cursor.execute(get_task_id, [entry.task])
         task_id = cursor.fetchone()[0]
+        cursor.execute(get_category_id, [entry.category])
+        category_id = cursor.fetchone()[0]
         cursor.execute(
             write_entry,
             [
                 entry.date,
                 entry.duration,
-                entry.category,
+                category_id,
                 task_id,
                 entry.comment,
                 session_id,
