@@ -183,7 +183,10 @@ class _ConsoleCommand:
         for alias in self.aliases:
             cmd_str = cmd_str + alias + ", "
         cmd_str = cmd_str[:-2]  # remove the last comma and space
-        cmd_str = cmd_str + "\t\t" + self.function.__doc__.split("\n")[0]
+        doc_str = self.function.__doc__
+        if doc_str.startswith("\n"):
+            doc_str = doc_str[1:]
+        cmd_str = cmd_str + "\t\t" + doc_str.split("\n")[0]
         return cmd_str
 
 
