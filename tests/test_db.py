@@ -51,14 +51,16 @@ def test_populate_tables(console):
 def test_write_time_log(console):
     db_populate_task_category_lists(console)
     console.time_entries.append(
-        TimeEntry(console, duration=1, comment="test", task="t", category=9)
+        TimeEntry(console, duration=1, comment="test", task="t", category=3)
     )
 
     db_write_time_log(console, 0)
     find_entry = """--sql
-        SELECT session_id, duration, category_id, task_id, date, comment
-        FROM time_log
-        WHERE session_id=0
+        SELECT l.duration, c.user_key, t.user_key, l.date, l.comment
+        FROM time_log l
+        JOIN tasks t ON t.id=l.task_id
+        JOIN categories c ON c.id=l.category_id
+        WHERE l.session_id=0
     """
     cursor = console.db_connection.cursor()
     cursor.execute(find_entry)
@@ -66,12 +68,11 @@ def test_write_time_log(console):
     cs_entry = console.time_entries[-1]
     for index, data in enumerate(
         [
-            0,
-            cs_entry.duration,
-            cs_entry.category,
-            1,  # default task id
-            cs_entry.date.strftime("%Y-%m-%d"),
-            cs_entry.comment,
+            cs_entry.duration,  # 1 hr
+            str(cs_entry.category),  # user_key = 3 ("email")
+            cs_entry.task,  # user_key = 't' ("titr")
+            cs_entry.date.strftime("%Y-%m-%d"),  # today
+            cs_entry.comment,  # "test"
         ]
     ):
         assert db_entry[index] == data
