@@ -736,6 +736,7 @@ def db_initialize(
     category_table = """--sql
         CREATE TABLE IF NOT EXISTS categories(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_key TEXT,
             name TEXT
         )
     """
@@ -831,7 +832,8 @@ def db_populate_task_category_lists(
     # TODO: Restructure categories table to include a 'key'
     # column, and use db_populate_user_table to populate it
     for user_key, value in console.config.category_list.items():
-        cursor.execute(write_categories, [user_key, value])
+        db_populate_user_table(console.db_connection, "categories", user_key, value)
+        #  cursor.execute(write_categories, [user_key, value])
 
     for user_key, value in console.config.task_list.items():
         db_populate_user_table(console.db_connection, "tasks", user_key, value)
