@@ -472,6 +472,101 @@ def import_from_outlook(console: ConsoleSession) -> None:
         preview_output(console)
 
 
+@ConsoleCommand(name="import")
+def import_from_csv(
+    console: ConsoleSession,
+    csv_file_path: str,
+    header_row: Optional[int] = None,
+) -> int:
+    """
+    Import data from a CSV into the database.
+
+    Usage: import <filename> [header_row=<header_row_num>]
+    CSV data must be structured as
+    Date: date | duration: float | task: str | category: str | comment: str
+    Returns number of rows added.
+    """
+
+    import csv
+
+    cursor = console.db_connection.cursor()
+    session_id: int = db_session_metadata(console.db_connection)
+    write_entry: str = """--sql
+        INSERT INTO time_log (date, duration, category_id, task_id, comment, session_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """
+
+    try:
+        with open(csv_file_path, "r") as csv_handle:
+            csv_reader = csv.reader(csv_handle)
+            row_num: int = 0
+            num_entries: int = 0
+            total_hours: float = 0.0
+            # loop row-by-row, starting at the first row if header_row=None
+            # else start at header_row + 1
+            for row in csv_reader:
+                row_num += 1
+                if header_row is not None and row_num <= int(header_row):
+                    continue
+
+                # convert the date
+                try:
+                    month, day, year = row[0].split("/")
+                    entry_date: datetime.date = datetime.date(
+                        int(year), int(month), int(day)
+                    )
+                except ValueError:
+                    print(
+                        f"Warning: {row_num=} has invalid date {row[0]}. Skipping entry."
+                    )
+                    continue
+
+                # convert the entry duration
+                try:
+                    entry_duration = float(row[1])
+                except ValueError:
+                    print(
+                        f"Warning: {row_num=} has invalid duration {row[1]}. Skipping entry."
+                    )
+                    continue
+
+                # Get task & category ids
+                task_id = db_populate_user_table(console.db_connection, "tasks", row[2])
+                category_id = db_populate_user_table(
+                    console.db_connection,
+                    "categories",
+                    row[3],
+                    user_key=None,
+                )
+
+                entry_comment = row[4]
+
+                cursor.execute(
+                    write_entry,
+                    [
+                        entry_date,
+                        entry_duration,
+                        category_id,
+                        task_id,
+                        entry_comment,
+                        session_id,
+                    ],
+                )
+                num_entries = num_entries + 1
+                total_hours = total_hours + entry_duration
+    except FileNotFoundError as err:
+        print(err)
+        return 0
+
+    print(f"Total of {num_entries} entries found totalling {total_hours} hours.")
+    continue_prompt = input("Enter 'y' to continue: ")
+    if continue_prompt == "y":
+        console.db_connection.commit()
+        print(f"Entries committed to database.")
+
+    return num_entries
+
+
 #####################
 # PRIVATE FUNCTIONS #
 #####################
@@ -772,14 +867,16 @@ def db_populate_user_table(
     db_connection: sqlite3.Connection,
     table: str,
     value: str,
-    user_key: str = None,
+    user_key: Optional[str] = None,
     test_flag: bool = False,
-) -> None:
+) -> int:
     """Populate a single row of a table with a key-value pair.
 
     Will update an existing entry if the name (value) field is recognized.
     Otherwise a new entry will be added.
-    Keys will be enforced to be unique."""
+    User keys will be enforced to be unique.
+
+    Return the primary_key of the entry"""
     # Determine the id of the row to populate
     # Search the table and find the id of the item with a matching name
     cursor = db_connection.cursor()
@@ -802,31 +899,38 @@ def db_populate_user_table(
     else:
         primary_key = primary_key_query[0]
 
-    write_table: str = """--sql
-        REPLACE INTO {} (id, user_key, name) VALUES (?, ?, ?)
-    """.format(
-        table
-    )
-    cursor.execute(write_table, [primary_key, user_key, value])
+    if user_key is not None:
+        write_table: str = """--sql
+            REPLACE INTO {} (id, user_key, name) VALUES (?, ?, ?)
+        """.format(
+            table
+        )
+        cursor.execute(write_table, [primary_key, user_key, value])
 
-    # Ensure that all keys in the table are unique
-    enforce_unique_keys: str = """--sql
-        UPDATE {} SET user_key=null WHERE id != (?) AND user_key = (?)
-    """.format(
-        table
-    )
-    cursor.execute(enforce_unique_keys, [primary_key, user_key])
+        # Ensure that all keys in the table are unique
+        enforce_unique_keys: str = """--sql
+            UPDATE {} SET user_key=null WHERE id != (?) AND user_key = (?)
+        """.format(
+            table
+        )
+        cursor.execute(enforce_unique_keys, [primary_key, user_key])
+    else:
+        write_table = """--sql
+            INSERT OR REPLACE INTO {} (id, name) VALUES (?, ?)
+        """.format(
+            table
+        )
+        cursor.execute(write_table, [primary_key, value])
+
+    return primary_key
 
 
 def db_populate_task_category_lists(
     console: ConsoleSession,
 ) -> None:
     """Populate the category & task tables in the sqlite db."""
-    # TODO: Restructure categories table to include a 'key'
-    # column, and use db_populate_user_table to populate it
     for user_key, value in console.config.category_list.items():
         db_populate_user_table(console.db_connection, "categories", value, user_key)
-        #  cursor.execute(write_categories, [user_key, value])
 
     for user_key, value in console.config.task_list.items():
         db_populate_user_table(console.db_connection, "tasks", value, user_key)
