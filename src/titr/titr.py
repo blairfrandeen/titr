@@ -12,9 +12,10 @@ import datetime
 import os
 import sqlite3
 import sys
+import titr
 from typing import Optional, Tuple, Dict, List, Callable, Any
 
-from __init__ import __version__
+from version import __version__
 from colorama import Fore, Style
 
 # TODO: import datum_console as dc
@@ -36,7 +37,8 @@ COLUMN_WIDTHS = [13, 8, 12, 25, 38]
 
 
 def main() -> None:
-    print("Welcome to titr.")
+    print(f"Welcome to titr. Version {__version__}")
+    print("https://github.com/blairfrandeen/titr")
     cmd_dict = dict()
     cs = ConsoleSession()
     get_input(session_args=cs)
