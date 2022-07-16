@@ -174,8 +174,8 @@ def outlook_entry_pattern(user_input: str) -> bool:
     return time_entry_pattern(user_input) or user_input == ""
 
 
-@ConsolePattern(pattern=time_entry_pattern, name="add_entry")
-def add_entry(console, user_input: str) -> None:
+@ConsoleCommand(name="add")
+def add_help(console):  # pragma: no cover
     """
     Add a new entry to the time log.
 
@@ -194,6 +194,11 @@ def add_entry(console, user_input: str) -> None:
     1 2 this is one hour in category 2
     2.1     (2.1 hrs, default category & task, no comment)
     """
+    pass  # documentation only function
+
+
+@ConsolePattern(pattern=time_entry_pattern, name="add_entry")
+def add_entry(console, user_input: str) -> None:
     entry_args: Optional[Dict[Any, Any]] = _parse_time_entry(console, user_input)
     if console.outlook_item:
         if not entry_args:
@@ -214,7 +219,10 @@ def clear_entries(console) -> None:
 
 @ConsoleCommand(name="clip", aliases=["copy"])
 def copy_output(console) -> None:
-    """Copy output to clipboard."""
+    """
+    Copy output to clipboard.
+
+    Output is copied in TSV (tab-separated values)"""
     import pyperclip
 
     output_str: str = ""
@@ -238,7 +246,7 @@ def list_categories_and_tasks(console):
 
 @ConsoleCommand(name="preview", aliases=["p"])
 def preview_output(console: ConsoleSession) -> None:
-    """Preview output."""
+    """Preview time entries that have been entered so far."""
     print(Style.BRIGHT, end="")
     for index, heading in enumerate(["DATE", "HOURS", "TASK", "CATEGORY", "COMMENT"]):
         print(
@@ -277,10 +285,10 @@ def scale_time_entries(console: ConsoleSession, target_total: str) -> None:
 @ConsoleCommand(name="date", aliases=["d"])
 def set_date(console, datestr: str = None) -> None:
     """
-    Set the date for time entries.
+    Set the date for time entries and timecard.
 
     Enter 'date' with no arguments to set date to today.
-    Enter 'date -<n>' where n is an integer to set date n days back
+    Enter 'date -<n>' where n is an integer to set date n days back from today
         for example 'date -1' will set it to yesterday.
     Enter 'date yyyy-mm-dd' to set to any custom date.
     Dates must not be in the future.
@@ -316,10 +324,12 @@ def undo_last(console) -> None:
 @ConsoleCommand(name="write", aliases=["c", "commit"])
 def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     """
-    Write time entries to the database.
+    Permanently commit time entries to the database.
 
     Database is in ~/.titr/titr.db by default. Run titr --testdb
     to use a test database file in the working directory.
+
+    Entries are copied to clipboard for those still using Excel.
     """
 
     if len(console.time_entries) == 0:
@@ -348,7 +358,7 @@ def show_weekly_timecard(console: ConsoleSession) -> float:
     Show timecard summary for this week.
 
     To show summary for a different week, set the date
-    to any day within the week of interest.
+    to any day within the week of interest using the date command.
 
     Weeks start on Monday."""
     week_start: datetime.date = console.date - datetime.timedelta(
@@ -411,7 +421,11 @@ def deep_work(console: ConsoleSession) -> float:
 
 @ConsoleCommand(name="outlook", aliases=["o"], enabled=OUTLOOK_ENABLED)
 def import_from_outlook(console: ConsoleSession) -> None:
-    """Import appointments from outlook."""
+    """
+    Import appointments from outlook for the current date.
+
+    Requires that outlook be running with the account specified
+    in your ~/.titr/titr.cfg file active. Windows only."""
     outlook_items = get_outlook_items(
         console.date, console.config.calendar_name, console.config.outlook_account
     )
