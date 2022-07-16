@@ -41,6 +41,7 @@ else:
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 COLUMN_WIDTHS = [12, 8, 22, 22, 24]
+DW_GOAL: float = 300
 
 parser = argparse.ArgumentParser(description="titr")
 parser.add_argument(
@@ -413,27 +414,42 @@ def show_weekly_timecard(console: ConsoleSession) -> float:
 
 @ConsoleCommand(name="deepwork", aliases=["dw"])
 def deep_work(console: ConsoleSession) -> float:
-    """Show total deep work and deep work over past 365 days."""
+    """
+    Show total deep work and deep work over past 365 days.
+
+    Deep work goal currently set in source code to 300 hours."""
     cursor = console.db_connection.cursor()
 
-    dw_category_id = 2
     get_dw_total = """--sql
-        SELECT sum(duration) FROM time_log WHERE category_id=(?)
+        SELECT sum(duration) FROM time_log t
+        JOIN categories c on t.category_id=c.id
+        WHERE c.name = 'Deep Work'
     """
-    cursor.execute(get_dw_total, [dw_category_id])
+    cursor.execute(get_dw_total)
     dw_total = cursor.fetchone()[0]
-    print(f"{dw_total = }")
-    get_dw_last_365 = """--sql
-        SELECT sum(duration) FROM time_log WHERE
-            category_id=(?)
-            AND
-            date>=(?)
-    """
-    last_year = datetime.date.today() - datetime.timedelta(days=365)
-    cursor.execute(get_dw_last_365, [dw_category_id, last_year])
-    dw_last_365 = cursor.fetchone()[0]
-    print(f"{dw_last_365 = }")
+    get_dw_last_365 = get_dw_total + " AND date>=(?)"
 
+    last_year = datetime.date.today() - datetime.timedelta(days=365)
+    cursor.execute(get_dw_last_365, [last_year])
+    dw_last_365 = cursor.fetchone()[0]
+    w1, w2, w3 = 20, 20, 20  # column widths
+    print(
+        Style.BRIGHT
+        + "{:{}}{:{}}{:{}}".format("DEEP WORK", w1, "TOTAL", w2, "LAST 365 DAYS", w3)
+        + Style.NORMAL
+    )
+    print(
+        Style.BRIGHT + " " * w1 + "{:<{}.1f}".format(dw_total, w2) + Style.NORMAL,
+        end="",
+    )
+    goal_color = Fore.GREEN if dw_last_365 >= DW_GOAL else Fore.RED
+    print(
+        Style.BRIGHT
+        + goal_color
+        + "{:<{}.1f}".format(dw_last_365, w3)
+        + Style.NORMAL
+        + Fore.RESET
+    )
     return dw_total
 
 
