@@ -395,6 +395,7 @@ def show_weekly_timecard(console: ConsoleSession) -> float:
     cursor.execute(get_week_total_hours, [week_start, week_end])
     week_total_hours: Optional[float] = cursor.fetchone()[0]
 
+    col_widths = [30, 8, 8]
     if week_total_hours is not None:
         get_totals_by_task: str = """--sql
             SELECT t.name, sum(l.duration) from time_log l
@@ -404,10 +405,40 @@ def show_weekly_timecard(console: ConsoleSession) -> float:
         """
         cursor.execute(get_totals_by_task, [week_start, week_end])
         totals_by_task: list[tuple[str, float]] = cursor.fetchall()
+        print(
+            Style.BRIGHT
+            + "{:{}}{:{}}{:{}}".format(
+                "TASK",
+                col_widths[0],
+                "HOURS",
+                col_widths[1],
+                "PERCENTAGE",
+                col_widths[2],
+            )
+            + Style.NORMAL
+        )
         for task in totals_by_task:
-            task_percentage = task[1] / week_total_hours * 100
-            print(f"{task[0]}\t\t{task[1]}\t{round(task_percentage, 1)}%")
-    print(f"{week_total_hours=}")
+            task_percentage = task[1] / week_total_hours
+            print(
+                "{:{}}{:<{}.2f}{:<{}.2%}".format(
+                    task[0],
+                    col_widths[0],
+                    task[1],
+                    col_widths[1],
+                    task_percentage,
+                    col_widths[2],
+                )
+            )
+        print(
+            Style.BRIGHT
+            + Fore.GREEN
+            + "{:{}}{:<{}.2f}".format(
+                "", col_widths[0], week_total_hours, col_widths[1]
+            )
+            + Style.RESET_ALL
+        )
+    else:
+        print("No time entered for this week.")
 
     return week_total_hours
 
