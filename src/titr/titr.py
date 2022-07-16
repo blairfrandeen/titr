@@ -372,7 +372,7 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
 
 
 @ConsoleCommand(name="timecard", aliases=["tc"])
-def show_weekly_timecard(console: ConsoleSession) -> float:
+def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
     """
     Show timecard summary for this week.
 
@@ -395,7 +395,7 @@ def show_weekly_timecard(console: ConsoleSession) -> float:
     cursor.execute(get_week_total_hours, [week_start, week_end])
     week_total_hours: Optional[float] = cursor.fetchone()[0]
 
-    col_widths = [30, 8, 8]
+    col_widths = [30, 12, 12]
     if week_total_hours is not None:
         get_totals_by_task: str = """--sql
             SELECT t.name, sum(l.duration) from time_log l
@@ -641,7 +641,7 @@ def import_from_csv(
     continue_prompt = input("Enter 'y' to continue: ")
     if continue_prompt == "y":
         console.db_connection.commit()
-        print(f"Entries committed to database.")
+        print("Entries committed to database.")
 
     return num_entries
 
