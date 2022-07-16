@@ -179,15 +179,28 @@ class _ConsoleCommand:
             return None
 
     def __str__(self):
+        pre_indent: int = 2
+        width_command: int = 20
+        width_description: int = 60
         cmd_str = ""
         for alias in self.aliases:
             cmd_str = cmd_str + alias + ", "
         cmd_str = cmd_str[:-2]  # remove the last comma and space
-        doc_str = self.function.__doc__
-        if doc_str.startswith("\n"):
-            doc_str = doc_str[1:]
-        cmd_str = cmd_str + "\t\t" + doc_str.split("\n")[0]
-        return cmd_str
+        doc_str: list[str] = textwrap.wrap(
+            self.function.__doc__.strip().split("\n")[0],
+            width=width_description,
+            initial_indent="",
+            subsequent_indent=" " * width_command,
+        )
+        #  if doc_str.startswith("\n"):
+        #  doc_str = doc_str[1:]
+        #  cmd_str = cmd_str + "\t\t" + doc_str.split("\n")[0]
+        cmd_str: str = "{cs:{w1}}{ds:{w2}}".format(
+            cs=cmd_str, ds=doc_str[0], w1=width_command, w2=width_description
+        )
+        for line in doc_str[1:]:
+            cmd_str += "\n" + line
+        return textwrap.indent(cmd_str, " " * pre_indent)
 
 
 def _cmd_dict() -> dict:
@@ -226,7 +239,7 @@ def _quit_function(*args):
 
 @ConsoleCommand(name="help", aliases=["h", "wtf"])
 def _help_function(*args):
-    """Display this help message"""
+    """Display this help message. Type help <command> for more detail."""
     cmd_dict = _cmd_dict()
     if len(args) > 1 and args[1] in cmd_dict.keys():
         docstr = cmd_dict[args[1]].function.__doc__
@@ -234,7 +247,9 @@ def _help_function(*args):
             docstr = docstr[1:]  # Trim newline if it exists
         print(textwrap.dedent(docstr))
     else:
+        print("Available commands:")
         for key in sorted(_COMMAND_LIST.keys()):
             cmd = _COMMAND_LIST[key]
             if not cmd.hidden:
+                #  print("  ", end="")
                 print(cmd)
