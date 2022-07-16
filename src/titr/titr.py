@@ -13,6 +13,7 @@ import datetime
 import os
 import sqlite3
 import sys
+import textwrap
 from typing import Optional, Tuple, Dict, List, Any
 
 from __init__ import __version__
@@ -39,7 +40,7 @@ else:
 
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
-COLUMN_WIDTHS = [13, 8, 12, 25, 38]
+COLUMN_WIDTHS = [13, 8, 20, 20, 25]
 
 parser = argparse.ArgumentParser(description="titr")
 parser.add_argument(
@@ -158,6 +159,21 @@ class TimeEntry:
                 i=item, al=al, fmt=fmt, wd=COLUMN_WIDTHS[index]
             )
 
+        w0, w1, w2, w3, w4 = COLUMN_WIDTHS
+        self_str = (
+            "{date:{w0}}{duration:<{w1}.2f}{task:{w2}}{cat:{w3}}{comment:{w4}}".format(
+                date=self.date_str,
+                duration=self.duration,
+                task=textwrap.shorten(self.tsk_str, w2 - 1),
+                cat=textwrap.shorten(self.cat_str, w3 - 1),
+                comment=self.comment,
+                w0=w0,
+                w1=w1,
+                w2=w2,
+                w3=w3,
+                w4=w4,
+            )
+        )
         return self_str.strip()
 
 
@@ -199,6 +215,7 @@ def add_help(console):  # pragma: no cover
 
 @ConsolePattern(pattern=time_entry_pattern, name="add_entry")
 def add_entry(console, user_input: str) -> None:
+    """Add a new entry to the time log."""
     entry_args: Optional[Dict[Any, Any]] = _parse_time_entry(console, user_input)
     if console.outlook_item:
         if not entry_args:
