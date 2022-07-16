@@ -40,7 +40,7 @@ else:
 
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
-COLUMN_WIDTHS = [13, 8, 20, 20, 25]
+COLUMN_WIDTHS = [12, 8, 22, 22, 24]
 
 parser = argparse.ArgumentParser(description="titr")
 parser.add_argument(
@@ -141,32 +141,24 @@ class TimeEntry:
         return tsv_str
 
     def __str__(self):  # pragma: no cover
-        self_str = ""
-        for index, item in enumerate(
-            [
-                self.date_str,
-                self.duration,
-                self.tsk_str,
-                self.cat_str,
-                self.comment,
-            ]
-        ):
-            if index == 1:
-                fmt, al = ".2f", "<"
-            else:
-                fmt, al = "", "<"
-            self_str += "{i:{al}{wd}{fmt}}".format(
-                i=item, al=al, fmt=fmt, wd=COLUMN_WIDTHS[index]
-            )
-
         w0, w1, w2, w3, w4 = COLUMN_WIDTHS
+        comment_str_first: list[str] = (
+            textwrap.wrap(
+                self.comment,
+                width=w4,
+                initial_indent="",
+                subsequent_indent=sum(COLUMN_WIDTHS[0:4]) * " ",
+            )[0]
+            if self.comment
+            else ""
+        )
         self_str = (
             "{date:{w0}}{duration:<{w1}.2f}{task:{w2}}{cat:{w3}}{comment:{w4}}".format(
                 date=self.date_str,
                 duration=self.duration,
-                task=textwrap.shorten(self.tsk_str, w2 - 1),
-                cat=textwrap.shorten(self.cat_str, w3 - 1),
-                comment=self.comment,
+                task=textwrap.shorten(self.tsk_str, w2 - 1, break_on_hyphens=False),
+                cat=textwrap.shorten(self.cat_str, w3 - 1, break_on_hyphens=False),
+                comment=comment_str_first,
                 w0=w0,
                 w1=w1,
                 w2=w2,
@@ -174,6 +166,15 @@ class TimeEntry:
                 w4=w4,
             )
         )
+        comment_str_others: list[str] = textwrap.wrap(
+            self.comment[len(comment_str_first) :].strip(),
+            width=sum(COLUMN_WIDTHS),
+            initial_indent=sum(COLUMN_WIDTHS[0:4]) * " ",
+            subsequent_indent=sum(COLUMN_WIDTHS[0:4]) * " ",
+            max_lines=2,
+        )
+        for line in comment_str_others:
+            self_str += "\n" + line
         return self_str.strip()
 
 
