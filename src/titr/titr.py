@@ -583,7 +583,9 @@ def import_from_csv(
     import csv
 
     cursor = console.db_connection.cursor()
-    session_id: int = db_session_metadata(console.db_connection)
+    session_id: int = db_session_metadata(
+        console.db_connection, input_type="import_from_csv"
+    )
     write_entry: str = """--sql
         INSERT INTO time_log (date, duration, category_id, task_id, comment, session_id)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -936,14 +938,15 @@ def db_initialize(
             name TEXT
         )
     """
-    # Create task table
+    # Create sessions table
     session_table = """--sql
         CREATE TABLE IF NOT EXISTS sessions(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             titr_version TEXT,
             user TEXT,
             platform TEXT,
-            ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            input_type TEXT
         )
     """
 
@@ -1032,12 +1035,12 @@ def db_populate_task_category_lists(
 
 
 def db_session_metadata(
-    db_connection: sqlite3.Connection, test_flag: bool = False
+    db_connection: sqlite3.Connection, input_type: str = "user", test_flag: bool = False
 ) -> int:
     """Make entry in session table and return the session id."""
     cursor = db_connection.cursor()
     new_entry: str = """--sql
-        INSERT INTO sessions (titr_version, user, platform) VALUES (?, ?, ?)
+        INSERT INTO sessions (titr_version, user, platform, input_type) VALUES (?, ?, ?, ?)
     """
     platform: str = sys.platform
     if "linux" in platform:
@@ -1047,7 +1050,7 @@ def db_session_metadata(
     else:
         user = None
 
-    cursor.execute(new_entry, [__version__, user, platform])
+    cursor.execute(new_entry, [__version__, user, platform, input_type])
     #  if not test_flag:  # pragma: no cover
     db_connection.commit()
 

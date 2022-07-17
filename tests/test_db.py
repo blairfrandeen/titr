@@ -23,7 +23,10 @@ def test_session_metadata(db_connection, monkeypatch):
     monkeypatch.setattr("os.getlogin", lambda: "windows_user")
     for session_id, platform in enumerate(platforms):
         monkeypatch.setattr("sys.platform", platform)
-        assert db_session_metadata(db_connection, test_flag=True) == session_id + 1
+        assert (
+            db_session_metadata(db_connection, input_type="test", test_flag=True)
+            == session_id + 1
+        )
 
 
 def test_populate_tables(console):
