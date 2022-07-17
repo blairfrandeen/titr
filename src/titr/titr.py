@@ -439,7 +439,6 @@ def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
         total_incidental: float = cursor.fetchone()[0]
         if total_incidental is None:
             total_incidental = 0
-        print(f"{total_incidental=}")
         print(  # HEADER ROW
             Style.BRIGHT
             + "{:{}}{:{}}{:{}}{:{}}".format(
@@ -473,7 +472,6 @@ def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
                     col_widths[3],
                 )
             )
-            print(task[2])
         print(  # TOTAL ROW
             Style.BRIGHT
             + Fore.GREEN
