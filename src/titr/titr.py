@@ -16,7 +16,7 @@ import sys
 from typing import Optional, Tuple, Dict, List, Callable, Any
 
 #  from version import __version__
-__version__ = "0.3.2"  # TODO: FIX THIS HSIT
+#  __version__ = "0.3.2"  # TODO: FIX THIS HSIT
 from colorama import Fore, Style
 
 # TODO: import datum_console as dc
@@ -30,7 +30,9 @@ try:
         patch_command,
         set_pattern,
     )
+    from titr import __version__
 except ModuleNotFoundError:
+    from __init__ import __version__
     from datum_console import (
         ConsoleCommand,
         ConsolePattern,
