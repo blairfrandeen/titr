@@ -2,6 +2,9 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.3 (2022-07-16)
+
+
 ## v0.4.0 (2022-07-16)
 ### Feature
 * Deep work function now displays color based on whether goal is being met. Greatly improved formatting. ([`d69a359`](https://github.com/blairfrandeen/titr/commit/d69a3593528f1bce32aba7f23317af407af07ad2))
