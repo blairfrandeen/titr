@@ -12,7 +12,7 @@ import datetime
 import os
 import sqlite3
 import sys
-import titr
+
 from typing import Optional, Tuple, Dict, List, Callable, Any
 
 #  from version import __version__
@@ -20,15 +20,26 @@ __version__ = "0.3.2"  # TODO: FIX THIS HSIT
 from colorama import Fore, Style
 
 # TODO: import datum_console as dc
-from datum_console import (
-    ConsoleCommand,
-    ConsolePattern,
-    get_input,
-    disable_command,
-    enable_command,
-    patch_command,
-    set_pattern,
-)
+try:
+    from titr.datum_console import (
+        ConsoleCommand,
+        ConsolePattern,
+        get_input,
+        disable_command,
+        enable_command,
+        patch_command,
+        set_pattern,
+    )
+except ModuleNotFoundError:
+    from datum_console import (
+        ConsoleCommand,
+        ConsolePattern,
+        get_input,
+        disable_command,
+        enable_command,
+        patch_command,
+        set_pattern,
+    )
 from dataclasses import dataclass, field
 
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
