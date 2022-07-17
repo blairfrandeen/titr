@@ -55,7 +55,6 @@ else:
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 COLUMN_WIDTHS = [12, 8, 22, 22, 24]
-DW_GOAL: float = 300
 
 parser = argparse.ArgumentParser(description="titr")
 parser.add_argument(
@@ -90,6 +89,7 @@ class Config:
     task_list: dict = field(default_factory=dict)
     skip_all_day_events: bool = True
     max_duration: float = 9
+    deep_work_goal: float = 0
 
 
 class ConsoleSession:
@@ -477,23 +477,26 @@ def deep_work(console: ConsoleSession) -> float:
     last_year = datetime.date.today() - datetime.timedelta(days=365)
     cursor.execute(get_dw_last_365, [last_year])
     dw_last_365 = cursor.fetchone()[0]
-    w1, w2, w3 = 20, 20, 20  # column widths
+    w1, w2, w3, w4 = 15, 12, 18, 15  # column widths
     print(
         Style.BRIGHT
-        + "{:{}}{:{}}{:{}}".format("DEEP WORK", w1, "TOTAL", w2, "LAST 365 DAYS", w3)
+        + "{:{}}{:{}}{:{}}{:{}}".format(
+            "DEEP WORK", w1, "TOTAL", w2, "LAST 365 DAYS", w3, "GOAL", w4
+        )
         + Style.NORMAL
     )
-    print(
-        Style.BRIGHT + " " * w1 + "{:<{}.1f}".format(dw_total, w2) + Style.NORMAL,
-        end="",
+    goal_color = (
+        Fore.GREEN if dw_last_365 >= console.config.deep_work_goal else Fore.RED
     )
-    goal_color = Fore.GREEN if dw_last_365 >= DW_GOAL else Fore.RED
     print(
         Style.BRIGHT
+        + "{:{}}".format("----------", w1)
+        + "{:<{}.1f}".format(dw_total, w2)
         + goal_color
         + "{:<{}.1f}".format(dw_last_365, w3)
-        + Style.NORMAL
         + Fore.RESET
+        + "{:<{}.0f}".format(console.config.deep_work_goal, w4)
+        + Style.NORMAL
     )
     return dw_total
 
@@ -693,6 +696,7 @@ def create_default_config():
         "max_entry_duration": "9",
         "default_category": "2",
         "default_task": "d",
+        "deep_work_goal": "300",
     }
     config["categories"] = {
         2: "Deep Work",
@@ -823,6 +827,7 @@ def load_config(config_file=CONFIG_FILE) -> Config:
 
     # TODO: Error handling
     config.max_duration = float(parser["general_options"]["max_entry_duration"])
+    config.deep_work_goal = float(parser["general_options"]["deep_work_goal"])
 
     config.outlook_account = parser["outlook_options"]["email"]
     config.calendar_name = parser["outlook_options"]["calendar_name"]
