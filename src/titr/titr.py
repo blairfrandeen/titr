@@ -431,7 +431,7 @@ def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
             get_totals_by_task,
             [week_start, week_end],
         )
-        totals_by_task: list[tuple[str, float]] = cursor.fetchall()
+        totals_by_task: list[tuple[str, float, str]] = cursor.fetchall()
         cursor.execute(
             get_total_incidental,
             [week_start, week_end],
