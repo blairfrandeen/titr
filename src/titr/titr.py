@@ -16,18 +16,32 @@ import sys
 import textwrap
 from typing import Optional, Tuple, Dict, List, Any
 
-from __init__ import __version__
+
 from colorama import Fore, Style
 
 # TODO: import datum_console as dc
-from datum_console import (
-    ConsoleCommand,
-    ConsolePattern,
-    get_input,
-    disable_command,
-    enable_command,
-    set_pattern,
-)
+try:
+    from titr.datum_console import (
+        ConsoleCommand,
+        ConsolePattern,
+        get_input,
+        disable_command,
+        enable_command,
+        patch_command,
+        set_pattern,
+    )
+    from titr import __version__
+except ModuleNotFoundError:
+    from __init__ import __version__
+    from datum_console import (
+        ConsoleCommand,
+        ConsolePattern,
+        get_input,
+        disable_command,
+        enable_command,
+        patch_command,
+        set_pattern,
+    )
 from dataclasses import dataclass, field
 
 try:
@@ -55,8 +69,8 @@ if args.testdb:  # pragma: no cover
 
 
 def main() -> None:
-    print("Welcome to titr.")
-    #  cmd_dict = dict()
+    print(f"Welcome to titr. Version {__version__}")
+    print("https://github.com/blairfrandeen/titr")
     with ConsoleSession() as cs:
         get_input(session_args=cs)
 
