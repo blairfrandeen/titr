@@ -15,7 +15,8 @@ import sys
 import titr
 from typing import Optional, Tuple, Dict, List, Callable, Any
 
-from version import __version__
+#  from version import __version__
+__version__ = "0.3.2"  # TODO: FIX THIS HSIT
 from colorama import Fore, Style
 
 # TODO: import datum_console as dc
