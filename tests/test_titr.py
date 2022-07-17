@@ -87,7 +87,13 @@ def test_timecard(console):
 def test_default_config(titr_default_config):
     test_config = configparser.ConfigParser()
     test_config.read(titr_default_config)
-    for section in ["outlook_options", "general_options", "categories", "tasks"]:
+    for section in [
+        "outlook_options",
+        "general_options",
+        "categories",
+        "tasks",
+        "incidental_tasks",
+    ]:
         assert section in test_config.sections()
 
     # expect failure if config already exists
@@ -110,6 +116,7 @@ def test_load_config(titr_default_config, console, monkeypatch):
     assert console.config.default_category == 2
     assert console.config.skip_all_day_events is True
     assert console.config.skip_event_status == [0, 3]
+    assert console.config.incidental_tasks == ["i"]
     assert console.config.skip_event_names == ["Lunch", "Meeting"]
     configparser.ConfigParser()
 

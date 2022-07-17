@@ -90,6 +90,7 @@ class Config:
     skip_all_day_events: bool = True
     max_duration: float = 9
     deep_work_goal: float = 0
+    incidental_tasks: list[str] = field(default_factory=list)
 
 
 class ConsoleSession:
@@ -409,41 +410,71 @@ def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
     cursor.execute(get_week_total_hours, [week_start, week_end])
     week_total_hours: Optional[float] = cursor.fetchone()[0]
 
-    col_widths = [30, 12, 12]
+    col_widths = [30, 8, 15, 12]
+    inc_task_str = "('" + "', '".join(console.config.incidental_tasks) + "')"
     if week_total_hours is not None:
         get_totals_by_task: str = """--sql
-            SELECT t.name, sum(l.duration) from time_log l
-            JOIN tasks t on t.id = l.task_id
-            WHERE l.date >= (?) and l.date <= (?)
+            SELECT t.name, sum(l.duration), t.user_key FROM time_log l
+            JOIN tasks t ON t.id = l.task_id
+            WHERE l.date >= (?) AND l.date <= (?)
             GROUP BY task_id;
         """
-        cursor.execute(get_totals_by_task, [week_start, week_end])
+        get_total_incidental: str = """--sql
+            SELECT sum(l.duration) FROM time_log l
+            JOIN tasks t ON t.id = l.task_id
+            WHERE l.date >= (?) AND l.date <= (?)
+            AND t.user_key IN {}
+        """.format(
+            inc_task_str
+        )
+        cursor.execute(
+            get_totals_by_task,
+            [week_start, week_end],
+        )
         totals_by_task: list[tuple[str, float]] = cursor.fetchall()
-        print(
+        cursor.execute(
+            get_total_incidental,
+            [week_start, week_end],
+        )
+        total_incidental: float = cursor.fetchone()[0]
+        if total_incidental is None:
+            total_incidental = 0
+        print(f"{total_incidental=}")
+        print(  # HEADER ROW
             Style.BRIGHT
-            + "{:{}}{:{}}{:{}}".format(
+            + "{:{}}{:{}}{:{}}{:{}}".format(
                 "TASK",
                 col_widths[0],
                 "HOURS",
                 col_widths[1],
-                "PERCENTAGE",
+                "ADJ. HOURS",
                 col_widths[2],
+                "PERCENTAGE",
+                col_widths[3],
             )
             + Style.NORMAL
         )
+        # Print individual rows by task
         for task in totals_by_task:
-            task_percentage = task[1] / week_total_hours
+            if task[2] not in console.config.incidental_tasks:
+                task_percentage: float = task[1] / (week_total_hours - total_incidental)
+                task_adj_hrs: float = task[1] + total_incidental * task_percentage
+            else:
+                task_percentage, task_adj_hrs = 0, 0
             print(
-                "{:{}}{:<{}.2f}{:<{}.2%}".format(
+                "{:{}}{:<{}.2f}{:<{}.2f}{:<{}.2%}".format(
                     task[0],
                     col_widths[0],
                     task[1],
                     col_widths[1],
-                    task_percentage,
+                    task_adj_hrs,
                     col_widths[2],
+                    task_percentage,
+                    col_widths[3],
                 )
             )
-        print(
+            print(task[2])
+        print(  # TOTAL ROW
             Style.BRIGHT
             + Fore.GREEN
             + "{:{}}{:<{}.2f}".format(
@@ -707,6 +738,9 @@ def create_default_config():
         "i": "Incidental",
         "d": "Default Task",
     }
+    config["incidental_tasks"] = {
+        "keys": "i",
+    }
     config_path: str = os.path.dirname(CONFIG_FILE)
     if not os.path.exists(config_path):  # pragma: no cover
         os.mkdir(config_path)
@@ -805,6 +839,8 @@ def load_config(config_file=CONFIG_FILE) -> Config:
         config.task_list[key] = parser["tasks"][key]
 
     config.default_task = parser["general_options"]["default_task"]
+    config.incidental_tasks = parser["incidental_tasks"]["keys"].split(", ")
+    config.incidental_tasks = list(map(str.strip, config.incidental_tasks))
     if config.default_task not in config.task_list.keys():
         print(
             "Warning: Default tasks '",
