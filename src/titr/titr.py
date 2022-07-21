@@ -260,11 +260,14 @@ def copy_output(console) -> None:
     import pyperclip
 
     output_str: str = ""
-    for entry in console.time_entries:
-        output_str += entry.tsv_str + "\n"
+    if len(console.time_entries) > 0:
+        for entry in console.time_entries:
+            output_str += entry.tsv_str + "\n"
 
-    pyperclip.copy(output_str.strip())
-    print("TSV Output copied to clipboard.")
+        pyperclip.copy(output_str.strip())
+        print("TSV Output copied to clipboard.")
+    else:
+        print("No time has been entered.")
 
 
 @ConsoleCommand(name="list", aliases=["ls"])
