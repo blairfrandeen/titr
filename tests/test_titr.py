@@ -209,6 +209,11 @@ def test_preview(console, time_entry, capsys):
 
 
 def test_copy(console, time_entry):
+    pyperclip.copy("testing 123")
+    titr.copy_output(console)
+    clipboard = pyperclip.paste()
+    assert clipboard == "testing 123"
+
     for _ in range(3):
         console.time_entries.append(time_entry)
     titr.copy_output(console)
