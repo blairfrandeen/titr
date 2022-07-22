@@ -8,6 +8,7 @@ https://github.com/blairfrandeen/titr
 """
 
 import argparse
+import csv
 import configparser
 import datetime
 import os
@@ -615,8 +616,6 @@ def import_from_csv(
     Returns number of rows added.
     """
 
-    import csv
-
     cursor = console.db_connection.cursor()
     session_id: int = db_session_metadata(
         console.db_connection, input_type="import_from_csv"
@@ -695,6 +694,41 @@ def import_from_csv(
         print("Entries committed to database.")
 
     return num_entries
+
+
+@ConsoleCommand(name="export")
+def export_to_csv(
+    console: ConsoleSession,
+    csv_file_path: str = "titr_export.csv",
+) -> int:
+    """
+    Export database entries to csv.
+
+    Default export to titr_export.csv in working directory
+    Export path can be specified as default argument.
+
+    Exports CSV file with header row.
+    Columns Date, Duration, Task, Category, and Comment
+    """
+    csv_export_q = """--sql
+        SELECT l.date, l.duration, t.name, c.name, l.comment
+        FROM time_log l
+        JOIN categories c ON c.id=l.category_id
+        JOIN tasks t ON t.id=l.task_id
+    """
+    cursor = console.db_connection.cursor()
+    cursor.execute(csv_export_q)
+    data = cursor.fetchall()
+    if len(data) < 1:
+        print("No data to export.")
+        return 0
+    with open(csv_file_path, "w", newline="") as csv_handle:
+        writer = csv.writer(csv_handle)
+        writer.writerow(["Date", "Duration", "Task", "Category", "Comment"])
+        writer.writerows(data)
+
+    print(f"Exported {len(data)} rows to {csv_file_path}.")
+    return len(data)
 
 
 #####################
