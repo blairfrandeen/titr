@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.4.2 (2022-07-20)
+### Fix
+* Clipboard is not cleared when no time entries exist. ([`6e9197d`](https://github.com/blairfrandeen/titr/commit/6e9197de2355bca785dadcf45ac4a3365fe3f981))
+
 ## v0.4.0 (2022-07-16)
 Version 0.4.0 includes full sqlite3 database support, and allows for titr to be fully used on a daily without an Excel spreadsheet.
 
