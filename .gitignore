@@ -8,3 +8,6 @@ __pycache__/
 dist/
 *~
 src/titr.egg-info/*
+venv/
+*/__pycache__/
+*.egg-info/
