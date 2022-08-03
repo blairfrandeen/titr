@@ -5,6 +5,10 @@ from typing import Callable, Optional
 ####################
 # PUBLIC FUNCTIONS #
 ####################
+class InputError(Exception):
+    """User input is not valid."""
+
+
 def ConsolePattern(
     function: Optional[Callable] = None,
     pattern: Optional[Callable] = None,
@@ -111,7 +115,7 @@ def get_input(
         if exec_cmd is not None:
             try:
                 exec_cmd(session_args, *args, **kwargs)
-            except (KeyError, ValueError, TypeError) as err:
+            except InputError as err:
                 print("Error: ", err)
             else:
                 if exec_cmd.name in break_commands:
