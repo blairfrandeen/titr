@@ -3,7 +3,7 @@ import pytest
 
 
 from dataclasses import dataclass
-from titr import (
+from titr_main import (
     db_session_metadata,
     db_populate_task_category_lists,
     db_write_time_log,
