@@ -1,6 +1,6 @@
 [tool.pytest.ini_options]
 addopts = "-p no:faulthandler --cov --cov-report term-missing"
-pythonpath = "."
+pythonpath = "./src"
 
 [build-system]
 requires = ["setuptools>=42"]
