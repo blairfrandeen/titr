@@ -2,6 +2,16 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.0 (2022-08-02)
+### Feature
+* Add export command for basic export to CSV from sqlite3 database. ([`571a3de`](https://github.com/blairfrandeen/titr/commit/571a3de8d91859c91a1923d31bcaab9faba9092b))
+
+### Fix
+* Restructure to fix import problems ([`6e2d461`](https://github.com/blairfrandeen/titr/commit/6e2d461aed9b85806d762f35cfd4de986682b6f8))
+
+### Documentation
+* Update changelog ([`94a3745`](https://github.com/blairfrandeen/titr/commit/94a374586ff20be982892c63c0cdb0d2443e83a0))
+
 ## v0.4.2 (2022-07-20)
 ### Fix
 * Clipboard is not cleared when no time entries exist. ([`6e9197d`](https://github.com/blairfrandeen/titr/commit/6e9197de2355bca785dadcf45ac4a3365fe3f981))
