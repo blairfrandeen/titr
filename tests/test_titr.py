@@ -1,7 +1,7 @@
 import configparser
 import datetime
 import pytest
-import titr
+import titr_main as titr
 import pyperclip
 
 
@@ -248,7 +248,7 @@ def test_undo(console, time_entry):
 
 def test_main(monkeypatch, capsys):
     monkeypatch.setattr("builtins.input", lambda _: "q")
-    monkeypatch.setattr("titr.db_initialize.__defaults__", (TEST_DB, False))
+    monkeypatch.setattr("titr_main.db_initialize.__defaults__", (TEST_DB, False))
     with pytest.raises(SystemExit):
         titr.main()
 

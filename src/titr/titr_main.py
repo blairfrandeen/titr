@@ -20,29 +20,16 @@ from typing import Optional, Tuple, Dict, List, Any
 
 from colorama import Fore, Style
 
-# TODO: import datum_console as dc
-try:
-    from titr.datum_console import (
-        ConsoleCommand,
-        ConsolePattern,
-        get_input,
-        disable_command,
-        enable_command,
-        patch_command,
-        set_pattern,
-    )
-    from titr import __version__
-except ModuleNotFoundError:
-    from __init__ import __version__
-    from datum_console import (
-        ConsoleCommand,
-        ConsolePattern,
-        get_input,
-        disable_command,
-        enable_command,
-        patch_command,
-        set_pattern,
-    )
+from titr import __version__
+from titr.datum_console import (
+    ConsoleCommand,
+    ConsolePattern,
+    get_input,
+    disable_command,
+    enable_command,
+    patch_command,
+    set_pattern,
+)
 from dataclasses import dataclass, field
 
 try:

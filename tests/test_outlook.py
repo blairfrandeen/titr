@@ -3,7 +3,7 @@ import time
 import sys
 
 import pytest
-import titr
+import titr_main as titr
 from test_titr import console, titr_default_config, db_connection
 
 if not sys.platform.startswith("win32"):
@@ -180,7 +180,7 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
         print("Mode changed.")
 
     monkeypatch.setattr(titr, "get_outlook_items", _mock_get_outlook_items)
-    console.config.skip_event_names = ['Filtered Event']
+    console.config.skip_event_names = ["Filtered Event"]
 
     def _mock_user_input(**kwargs):
         return 0
