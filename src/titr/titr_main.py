@@ -23,6 +23,7 @@ from colorama import Fore, Style
 sys.path.append("src")
 from titr import __version__
 from titr.datum_console import (
+    InputError,
     ConsoleCommand,
     ConsolePattern,
     get_input,
@@ -66,6 +67,8 @@ def main() -> None:
 ###########
 # CLASSES #
 ###########
+
+
 @dataclass
 class Config:
     outlook_account: str = ""
@@ -292,9 +295,9 @@ def preview_output(console: ConsoleSession) -> None:
 def scale_time_entries(console: ConsoleSession, target_total: str) -> None:
     """Scale time entries by weighted average to sum to a target total duration."""
     if not is_float(target_total):
-        raise TypeError(f"Cannot convert {target_total} to float.")
+        raise InputError(f"Cannot convert {target_total} to float.")
     if float(target_total) == 0:
-        raise ValueError("Cannot scale to zero.")
+        raise InputError("Cannot scale to zero.")
     unscaled_total: float = sum([entry.duration for entry in console.time_entries])
     scale_amount: float = float(target_total) - unscaled_total
     if scale_amount == 0:
