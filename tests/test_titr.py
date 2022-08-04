@@ -1,7 +1,8 @@
 import configparser
 import datetime
 import pytest
-import titr_main as titr
+import titr_main as titr  # TODO: clean up into more pure import
+from datum_console import InputError
 import pyperclip
 
 
@@ -183,8 +184,8 @@ def test_float_bad_inputs():
         ([1, 2, 3], "7", [7 / 6, 14 / 6, 3.5]),
         ([4, 5, 6, 2], "17", [4, 5, 6, 2]),
         ([], "39", []),
-        ([1, 2, 3], "not a float", TypeError),
-        ([1, 2, 3], "0", ValueError),
+        ([1, 2, 3], "not a float", titr.InputError),
+        ([1, 2, 3], "0", titr.InputError),
     ],
 )
 def test_scale_duration(console, capsys, initial_times, user_input, expected_times):
