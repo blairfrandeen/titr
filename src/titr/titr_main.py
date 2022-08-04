@@ -48,6 +48,7 @@ TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 COLUMN_WIDTHS = [12, 8, 22, 22, 24]
 
 parser = argparse.ArgumentParser(description="titr")
+parser.add_argument("--outlook", "-o", action="store_true", help="start titr in outlook mode")
 parser.add_argument(
     "--testdb",
     action="store_true",
@@ -62,6 +63,11 @@ def main() -> None:
     print(f"Welcome to titr. Version {__version__}")
     print("https://github.com/blairfrandeen/titr")
     with ConsoleSession() as cs:
+        if args.outlook:
+            try:
+                import_from_outlook(cs)
+            except InputError as err:
+                print(err)
         get_input(session_args=cs)
 
 
