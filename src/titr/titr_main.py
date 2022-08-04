@@ -333,15 +333,21 @@ def set_date(console, datestr: str = None) -> None:
         pass
     else:
         if date_delta > 0:
-            raise ValueError("Date cannot be in the future.")
+            raise InputError("Date cannot be in the future.")
         new_date = datetime.date.today() + datetime.timedelta(days=date_delta)
 
-    new_date = datetime.date.fromisoformat(datestr) if not new_date else new_date
-    if new_date > datetime.date.today():
-        raise ValueError("Date cannot be in the future")
+    try:
+        new_date = datetime.date.fromisoformat(datestr) if not new_date else new_date
+    except ValueError as err:
+        raise InputError(
+            f"Error: Invalid date: {datestr}. See 'help date' for more info."
+        )
+    else:
+        if new_date > datetime.date.today():
+            raise InputError("Date cannot be in the future")
 
-    console.date = new_date
-    print(f"Date set to {console.date.isoformat()}")
+        console.date = new_date
+        print(f"Date set to {console.date.isoformat()}")
 
 
 @ConsoleCommand(name="undo", aliases=["u", "z"])
@@ -362,7 +368,7 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     """
 
     if len(console.time_entries) == 0:
-        raise ValueError("Nothing to commit. Get back to work.")
+        raise InputError("Nothing to commit. Get back to work.")
 
     # TODO: Store task & category lists exclusively in the database
     # modifiable through the program
@@ -540,7 +546,7 @@ def import_from_outlook(console: ConsoleSession) -> None:
         # will return an undefined value.
         num_items = sum(1 for _ in outlook_items)
         if num_items == 0:
-            raise KeyError(f"No outlook items found for {console.date}")
+            raise InputError(f"No outlook items found for {console.date}")
 
         # Allow blank entries to be mapped to add_item command
         set_pattern("add_entry", outlook_entry_pattern)
@@ -917,11 +923,14 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]
     if raw_input == "":
         return None
     user_input: List[str] = raw_input.split(" ")
-    duration = float(user_input[0])
+    try:
+        duration = float(user_input[0])
+    except ValueError as err:
+        raise InputError(err)
     if duration > console.config.max_duration:
-        raise ValueError("You're working too much.")
+        raise InputError("You're working too much.")
     if duration < 0:
-        raise ValueError("You can't unwork.")
+        raise InputError("You can't unwork.")
     time_entry_arguments: dict = {"duration": duration}
     entry_args: List[str] = user_input[1:]
     match entry_args:

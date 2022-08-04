@@ -341,7 +341,7 @@ def test_parse_time_entry(console, user_input, output_dict):
     ],
 )
 def test_parse_invalid_entries(console, invalid_entry):
-    with pytest.raises(ValueError):
+    with pytest.raises(titr.InputError):
         titr._parse_time_entry(console, invalid_entry)
 
 
@@ -378,5 +378,5 @@ def test_set_date(console, test_input, expected):
         titr.set_date(console, test_input)
         assert console.date == expected
     else:
-        with pytest.raises(ValueError):
+        with pytest.raises(titr.InputError):
             titr.set_date(console, test_input)
