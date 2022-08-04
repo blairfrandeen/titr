@@ -201,7 +201,7 @@ def outlook_entry_pattern(user_input: str) -> bool:
 
 
 @ConsoleCommand(name="add")
-def add_help(console):  # pragma: no cover
+def add_help(console, *args):  # pragma: no cover
     """
     Add a new entry to the time log.
 
@@ -220,7 +220,7 @@ def add_help(console):  # pragma: no cover
     1 2 this is one hour in category 2
     2.1     (2.1 hrs, default category & task, no comment)
     """
-    pass  # documentation only function
+    print("Use 'help add' for assistence.")
 
 
 @ConsolePattern(pattern=time_entry_pattern, name="add_entry")
