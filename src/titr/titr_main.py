@@ -20,6 +20,7 @@ from typing import Optional, Tuple, Dict, List, Any
 
 from colorama import Fore, Style
 
+sys.path.append("src")
 from titr import __version__
 from titr.datum_console import (
     ConsoleCommand,
