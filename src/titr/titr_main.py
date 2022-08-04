@@ -11,6 +11,7 @@ import argparse
 import csv
 import configparser
 import datetime
+import math
 import os
 import sqlite3
 import sys
@@ -927,6 +928,8 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]
         duration = float(user_input[0])
     except ValueError as err:
         raise InputError(err)
+    if math.isnan(duration):
+        raise InputError("Nice try, but I'm nan-plussed.")
     if duration > console.config.max_duration:
         raise InputError("You're working too much.")
     if duration < 0:

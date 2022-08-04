@@ -338,6 +338,7 @@ def test_parse_time_entry(console, user_input, output_dict):
         "hi there!",
         "-1 2 i",
         "e9 34 q wtf",
+        "nan lol",
     ],
 )
 def test_parse_invalid_entries(console, invalid_entry):
