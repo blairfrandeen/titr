@@ -22,7 +22,7 @@ from typing import Optional, Tuple, Dict, List, Any
 from colorama import Fore, Style
 
 sys.path.append("src")
-from titr import __version__
+from titr import __version__, __db_user_version__
 from titr.datum_console import (
     InputError,
     ConsoleCommand,
@@ -48,7 +48,9 @@ TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 COLUMN_WIDTHS = [12, 8, 22, 22, 24]
 
 parser = argparse.ArgumentParser(description="titr")
-parser.add_argument("--outlook", "-o", action="store_true", help="start titr in outlook mode")
+parser.add_argument(
+    "--outlook", "-o", action="store_true", help="start titr in outlook mode"
+)
 parser.add_argument(
     "--testdb",
     action="store_true",
@@ -60,7 +62,7 @@ if args.testdb:  # pragma: no cover
 
 
 def main() -> None:
-    print(f"Welcome to titr. Version {__version__}")
+    print(f"Welcome to titr. Version {__version__}. DB v{__db_user_version__}.")
     print("https://github.com/blairfrandeen/titr")
     with ConsoleSession() as cs:
         if args.outlook:
@@ -991,7 +993,7 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]
 def db_initialize(
     database_file: str = TITR_DB, test_flag: bool = False
 ) -> sqlite3.Connection:
-    """Write the sessions time entries to a database."""
+    """Initialize the database, and create all tables."""
     db_connection = sqlite3.connect(database_file)
     cursor = db_connection.cursor()
 
@@ -1037,11 +1039,54 @@ def db_initialize(
 
     for table in [time_log_table, category_table, task_table, session_table]:
         cursor.execute(table)
-
-    #  if not test_flag:  # pragma: no cover
     db_connection.commit()
 
+    # Check that version is correct
+    cursor.execute("PRAGMA user_version")
+    user_version = cursor.fetchone()[0]
+    if user_version != __db_user_version__:
+        db_update_version(db_connection, user_version)
+
     return db_connection
+
+
+def db_update_version(db_connection: sqlite3.Connection, user_version: int) -> int:
+    """Update the sqlite3 database from an older version.
+    Return the new version number."""
+    cursor = db_connection.cursor()
+
+    print(f"Updating database from version {user_version} to {__db_user_version__}...")
+
+    def _get_column_names(table_name: str) -> list[str]:
+        """Get the column names from a table."""
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        return [col[1] for col in cursor.fetchall()]
+
+    if user_version < 1:
+        # Rename key to user_key in tasks
+        task_columns = _get_column_names("tasks")
+        if "user_key" not in task_columns:
+            print(" Rename key to user_key in tasks...")
+            cursor.execute("ALTER TABLE tasks RENAME COLUMN key TO user_key")
+
+        # Add user_key to categories table
+        categories_columns = _get_column_names("categories")
+        if "user_key" not in categories_columns:
+            print(" Add user_key to categories table...")
+            cursor.execute("ALTER TABLE categories ADD COLUMN user_key TEXT")
+
+        # Add input_type to sessions table
+        sessions_columns = _get_column_names("sessions")
+        if "input_type" not in sessions_columns:
+            print(" Add input_type to sessions table...")
+            cursor.execute("ALTER TABLE sessions ADD COLUMN input_type TEXT")
+
+    # Set the user version to the current version
+    cursor.execute("PRAGMA user_version={}".format(__db_user_version__))
+    db_connection.commit()
+    print("Complete.")
+
+    return __db_user_version__
 
 
 def db_populate_user_table(
