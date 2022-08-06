@@ -185,7 +185,7 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
     def _mock_user_input(**kwargs):
         return 0
 
-    with pytest.raises(titr.InputError):
+    with pytest.raises(titr.dc.InputError):
         titr.import_from_outlook(console)
 
     monkeypatch.setattr(titr, "get_outlook_items", lambda *_: mock_appointments)
