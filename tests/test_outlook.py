@@ -115,7 +115,6 @@ def test_appt_parameters():
     return params
 
 
-# @pytest.mark.skip(reason='Working; connect to outlook time consuming')
 @pytest.mark.skipif("win" not in sys.platform, reason="Skipping windows only tets.")
 def test_get_outlook_items(make_appointment, monkeypatch, test_appt_parameters):
     test_appointments = []
@@ -136,19 +135,6 @@ def test_get_outlook_items(make_appointment, monkeypatch, test_appt_parameters):
         assert outlook_items[index].Subject == test_appt_parameters[index][2]
         assert outlook_items[index].Categories == test_appt_parameters[index][3]
         assert outlook_items[index].BusyStatus == test_appt_parameters[index][4]
-
-    # Test error handling for connecting to outlook
-    # Test bad account
-
-
-#    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", "not an account")
-# with pytest.raises(pywintypes.com_error):
-#     console.get_outlook_items()
-# Test bad calendar
-#    monkeypatch.setattr("titr.CALENDAR_NAME", "not a calendar")
-#    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
-# with pytest.raises(pywintypes.com_error):
-#     console.get_outlook_items()
 
 
 class MockOutlookAppt:
