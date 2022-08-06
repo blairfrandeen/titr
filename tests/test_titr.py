@@ -2,7 +2,8 @@ import configparser
 import datetime
 import pytest
 import titr_main as titr  # TODO: clean up into more pure import
-from datum_console import InputError
+
+#  from datum_console import InputError
 import pyperclip
 
 
@@ -184,8 +185,8 @@ def test_float_bad_inputs():
         ([1, 2, 3], "7", [7 / 6, 14 / 6, 3.5]),
         ([4, 5, 6, 2], "17", [4, 5, 6, 2]),
         ([], "39", []),
-        ([1, 2, 3], "not a float", titr.InputError),
-        ([1, 2, 3], "0", titr.InputError),
+        ([1, 2, 3], "not a float", titr.dc.InputError),
+        ([1, 2, 3], "0", titr.dc.InputError),
     ],
 )
 def test_scale_duration(console, capsys, initial_times, user_input, expected_times):
@@ -342,7 +343,7 @@ def test_parse_time_entry(console, user_input, output_dict):
     ],
 )
 def test_parse_invalid_entries(console, invalid_entry):
-    with pytest.raises(titr.InputError):
+    with pytest.raises(titr.dc.InputError):
         titr._parse_time_entry(console, invalid_entry)
 
 
@@ -373,11 +374,12 @@ def test_add_entry(console, monkeypatch):
         ("2121-04-23", None),
     ],
 )
-def test_set_date(console, test_input, expected):
+def test_set_date(console, test_input, expected, monkeypatch):
     console.date = datetime.date(1941, 12, 7)  # set to arbitrary wrong date.
     if expected is not None:
         titr.set_date(console, test_input)
         assert console.date == expected
     else:
-        with pytest.raises(titr.InputError):
+
+        with pytest.raises(titr.dc.InputError):
             titr.set_date(console, test_input)

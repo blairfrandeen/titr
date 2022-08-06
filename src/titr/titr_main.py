@@ -16,32 +16,28 @@ import os
 import sqlite3
 import sys
 import textwrap
-from typing import Optional, Tuple, Dict, List, Any
 
+from dataclasses import dataclass, field
+from typing import Optional, Tuple, Dict, List, Any
 
 from colorama import Fore, Style
 
-sys.path.append("src")
-from titr import __version__, __db_user_version__
-from titr.datum_console import (
-    InputError,
-    ConsoleCommand,
-    ConsolePattern,
-    get_input,
-    disable_command,
-    enable_command,
-    patch_command,
-    set_pattern,
-)
-from dataclasses import dataclass, field
-
 try:
+    # Attempt to import modules to use with Outlook
     import pywintypes
     import win32com.client
 except ImportError:  # pragma: no cover
+    # If failed, outlook commands disabled
     OUTLOOK_ENABLED = False
 else:
     OUTLOOK_ENABLED = True
+
+# allow for this file to be run from source tree root
+sys.path.append("src")
+
+from titr import __version__, __db_user_version__
+import titr.datum_console as dc
+
 
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
@@ -68,9 +64,9 @@ def main() -> None:
         if args.outlook:
             try:
                 import_from_outlook(cs)
-            except InputError as err:
+            except dc.InputError as err:
                 print(err)
-        get_input(session_args=cs)
+        dc.get_input(session_args=cs)
 
 
 ###########
@@ -208,7 +204,7 @@ def outlook_entry_pattern(user_input: str) -> bool:
     return time_entry_pattern(user_input) or user_input == ""
 
 
-@ConsoleCommand(name="add")
+@dc.ConsoleCommand(name="add")
 def add_help(console, *args):  # pragma: no cover
     """
     Add a new entry to the time log.
@@ -231,7 +227,7 @@ def add_help(console, *args):  # pragma: no cover
     print("Use 'help add' for assistence.")
 
 
-@ConsolePattern(pattern=time_entry_pattern, name="add_entry")
+@dc.ConsolePattern(pattern=time_entry_pattern, name="add_entry")
 def add_entry(console, user_input: str) -> None:
     """Add a new entry to the time log."""
     entry_args: Optional[Dict[Any, Any]] = _parse_time_entry(console, user_input)
@@ -246,13 +242,13 @@ def add_entry(console, user_input: str) -> None:
         print(console.time_entries[-1])
 
 
-@ConsoleCommand(name="clear")
+@dc.ConsoleCommand(name="clear")
 def clear_entries(console) -> None:
     """Delete all entered data."""
     console.time_entries = []
 
 
-@ConsoleCommand(name="clip", aliases=["copy"])
+@dc.ConsoleCommand(name="clip", aliases=["copy"])
 def copy_output(console) -> None:
     """
     Copy output to clipboard.
@@ -271,7 +267,7 @@ def copy_output(console) -> None:
         print("No time has been entered.")
 
 
-@ConsoleCommand(name="list", aliases=["ls"])
+@dc.ConsoleCommand(name="list", aliases=["ls"])
 def list_categories_and_tasks(console):
     """Display available category & account codes."""
     for dictionary, name in [
@@ -282,7 +278,7 @@ def list_categories_and_tasks(console):
         print()
 
 
-@ConsoleCommand(name="preview", aliases=["p"])
+@dc.ConsoleCommand(name="preview", aliases=["p"])
 def preview_output(console: ConsoleSession) -> None:
     """Preview time entries that have been entered so far."""
     print(Style.BRIGHT, end="")
@@ -300,13 +296,13 @@ def preview_output(console: ConsoleSession) -> None:
     print(Style.NORMAL + Fore.RESET, end="")
 
 
-@ConsoleCommand(name="scale", aliases=["s"])
+@dc.ConsoleCommand(name="scale", aliases=["s"])
 def scale_time_entries(console: ConsoleSession, target_total: str) -> None:
     """Scale time entries by weighted average to sum to a target total duration."""
     if not is_float(target_total):
-        raise InputError(f"Cannot convert {target_total} to float.")
+        raise dc.InputError(f"Cannot convert {target_total} to float.")
     if float(target_total) == 0:
-        raise InputError("Cannot scale to zero.")
+        raise dc.InputError("Cannot scale to zero.")
     unscaled_total: float = sum([entry.duration for entry in console.time_entries])
     scale_amount: float = float(target_total) - unscaled_total
     if scale_amount == 0:
@@ -320,7 +316,7 @@ def scale_time_entries(console: ConsoleSession, target_total: str) -> None:
         entry.duration = entry.duration + scale_amount * entry.duration / unscaled_total
 
 
-@ConsoleCommand(name="date", aliases=["d"])
+@dc.ConsoleCommand(name="date", aliases=["d"])
 def set_date(console, datestr: str = None) -> None:
     """
     Set the date for time entries and timecard.
@@ -342,30 +338,30 @@ def set_date(console, datestr: str = None) -> None:
         pass
     else:
         if date_delta > 0:
-            raise InputError("Date cannot be in the future.")
+            raise dc.InputError("Date cannot be in the future.")
         new_date = datetime.date.today() + datetime.timedelta(days=date_delta)
 
     try:
         new_date = datetime.date.fromisoformat(datestr) if not new_date else new_date
     except ValueError as err:
-        raise InputError(
+        raise dc.InputError(
             f"Error: Invalid date: {datestr}. See 'help date' for more info."
         )
     else:
         if new_date > datetime.date.today():
-            raise InputError("Date cannot be in the future")
+            raise dc.InputError("Date cannot be in the future")
 
         console.date = new_date
         print(f"Date set to {console.date.isoformat()}")
 
 
-@ConsoleCommand(name="undo", aliases=["u", "z"])
+@dc.ConsoleCommand(name="undo", aliases=["u", "z"])
 def undo_last(console) -> None:
     """Undo last entry."""
     console.time_entries = console.time_entries[:-1]
 
 
-@ConsoleCommand(name="write", aliases=["c", "commit"])
+@dc.ConsoleCommand(name="write", aliases=["c", "commit"])
 def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     """
     Permanently commit time entries to the database.
@@ -377,7 +373,7 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     """
 
     if len(console.time_entries) == 0:
-        raise InputError("Nothing to commit. Get back to work.")
+        raise dc.InputError("Nothing to commit. Get back to work.")
 
     # TODO: Store task & category lists exclusively in the database
     # modifiable through the program
@@ -396,7 +392,7 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     print(f"Commited entries to {TITR_DB}.")
 
 
-@ConsoleCommand(name="timecard", aliases=["tc"])
+@dc.ConsoleCommand(name="timecard", aliases=["tc"])
 def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
     """
     Show timecard summary for this week.
@@ -496,7 +492,7 @@ def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
     return week_total_hours
 
 
-@ConsoleCommand(name="deepwork", aliases=["dw"])
+@dc.ConsoleCommand(name="deepwork", aliases=["dw"])
 def deep_work(console: ConsoleSession) -> float:
     """
     Show total deep work and deep work over past 365 days.
@@ -540,7 +536,7 @@ def deep_work(console: ConsoleSession) -> float:
     return dw_total
 
 
-@ConsoleCommand(name="outlook", aliases=["o"], enabled=OUTLOOK_ENABLED)
+@dc.ConsoleCommand(name="outlook", aliases=["o"], enabled=OUTLOOK_ENABLED)
 def import_from_outlook(console: ConsoleSession) -> None:
     """
     Import appointments from outlook for the current date.
@@ -555,14 +551,14 @@ def import_from_outlook(console: ConsoleSession) -> None:
         # will return an undefined value.
         num_items = sum(1 for _ in outlook_items)
         if num_items == 0:
-            raise InputError(f"No outlook items found for {console.date}")
+            raise dc.InputError(f"No outlook items found for {console.date}")
 
         # Allow blank entries to be mapped to add_item command
-        set_pattern("add_entry", outlook_entry_pattern)
+        dc.set_pattern("add_entry", outlook_entry_pattern)
         # Disable commands in the console
         disabled_commands = "date write quit".split(" ")
         for cmd in disabled_commands:
-            disable_command(cmd)
+            dc.disable_command(cmd)
 
         print(f"Found total of {num_items} events for {console.date}:")
         # console._set_outlook_mode()
@@ -591,7 +587,7 @@ def import_from_outlook(console: ConsoleSession) -> None:
             cat_str = console.config.category_list[category]
             event_str = f"{comment}\n{cat_str} - {round(duration,2)} hr > "
             console.outlook_item = (duration, category, comment)
-            command = get_input(
+            command = dc.get_input(
                 session_args=console,
                 break_commands=["add_entry", "null_cmd", "quit"],
                 prompt=event_str,
@@ -601,13 +597,13 @@ def import_from_outlook(console: ConsoleSession) -> None:
                 break
 
         # Reenable commands
-        set_pattern("add_entry", time_entry_pattern)
+        dc.set_pattern("add_entry", time_entry_pattern)
         for cmd in disabled_commands:
-            enable_command(cmd)
+            dc.enable_command(cmd)
         preview_output(console)
 
 
-@ConsoleCommand(name="import")
+@dc.ConsoleCommand(name="import")
 def import_from_csv(
     console: ConsoleSession,
     csv_file_path: str,
@@ -702,7 +698,7 @@ def import_from_csv(
     return num_entries
 
 
-@ConsoleCommand(name="export")
+@dc.ConsoleCommand(name="export")
 def export_to_csv(
     console: ConsoleSession,
     csv_file_path: str = "titr_export.csv",
@@ -935,13 +931,13 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]
     try:
         duration = float(user_input[0])
     except ValueError as err:
-        raise InputError(err)
+        raise dc.InputError(err)
     if math.isnan(duration):
-        raise InputError("Nice try, but I'm nan-plussed.")
+        raise dc.InputError("Nice try, but I'm nan-plussed.")
     if duration > console.config.max_duration:
-        raise InputError("You're working too much.")
+        raise dc.InputError("You're working too much.")
     if duration < 0:
-        raise InputError("You can't unwork.")
+        raise dc.InputError("You can't unwork.")
     time_entry_arguments: dict = {"duration": duration}
     entry_args: List[str] = user_input[1:]
     match entry_args:
