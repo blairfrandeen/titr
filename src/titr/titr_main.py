@@ -22,14 +22,14 @@ from typing import Optional, Tuple, Dict, List, Any
 
 from colorama import Fore, Style
 
-try:
+try:  # pragma: no cover
     # Attempt to import modules to use with Outlook
     import pywintypes
     import win32com.client
-except ImportError:  # pragma: no cover
+except ImportError:
     # If failed, outlook commands disabled
     OUTLOOK_ENABLED = False
-else:
+else:  # pragma: no cover
     OUTLOOK_ENABLED = True
 
 # allow for this file to be run from source tree root
@@ -42,24 +42,15 @@ import titr.datum_console as dc
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 COLUMN_WIDTHS = [12, 8, 22, 22, 24]
-
-parser = argparse.ArgumentParser(description="titr")
-parser.add_argument(
-    "--outlook", "-o", action="store_true", help="start titr in outlook mode"
-)
-parser.add_argument(
-    "--testdb",
-    action="store_true",
-    help="use a test database file in the local folder",
-)
-args = parser.parse_args()
-if args.testdb:  # pragma: no cover
-    TITR_DB = "titr_test.db"
+WELCOME_MSG = f"""
+Welcome to titr. Version {__version__}. DB v{__db_user_version__}.
+https://github.com/blairfrandeen/titr"""
 
 
-def main() -> None:
-    print(f"Welcome to titr. Version {__version__}. DB v{__db_user_version__}.")
-    print("https://github.com/blairfrandeen/titr")
+def main(args: argparse.Namespace) -> None:
+    print(WELCOME_MSG)
+    if args.testdb:
+        TITR_DB = "titr_test.db"
     with ConsoleSession() as cs:
         if args.outlook:
             try:
@@ -1228,5 +1219,26 @@ def db_write_time_log(console: ConsoleSession, session_id: int) -> None:
     console.db_connection.commit()
 
 
+def parse_args() -> argparse.Namespace:
+    """Initialize the argument parser and available command line arguments.
+    Return the argument namespace."""
+    parser = argparse.ArgumentParser(description=WELCOME_MSG)
+    if OUTLOOK_ENABLED:
+        parser.add_argument(
+            "--outlook", "-o", action="store_true", help="start titr in outlook mode"
+        )
+    parser.add_argument(
+        "--testdb",
+        action="store_true",
+        help="use a test database file in the local folder",
+    )
+    args = parser.parse_args()
+
+    print(f"{args=}")
+    print(f"{type(args)=}")
+    return args
+
+
 if __name__ == "__main__":
-    main()
+    args: argparse.Namespace = parse_args()
+    main(args)

@@ -1,4 +1,5 @@
 import configparser
+from dataclasses import dataclass
 import datetime
 import pytest
 import titr_main as titr  # TODO: clean up into more pure import
@@ -249,10 +250,39 @@ def test_undo(console, time_entry):
 
 
 def test_main(monkeypatch, capsys):
+    # setup
     monkeypatch.setattr("builtins.input", lambda _: "q")
     monkeypatch.setattr("titr_main.db_initialize.__defaults__", (TEST_DB, False))
+
+    @dataclass
+    class MockArgs:
+        """Mock class for argparse.Namespace"""
+
+        outlook: bool = False
+        testdb: bool = False
+
+    args: MockArgs = MockArgs()
+
+    # Ensure testdb arg is working
+    args.testdb = True
     with pytest.raises(SystemExit):
-        titr.main()
+        titr.main(args)
+        assert titr.TITR_DB == "titr_test.db"
+
+    # Ensure outlook arg is working
+    args.testdb = False
+    args.outlook = True
+    with pytest.raises(SystemExit):
+
+        def _raise_in_err():
+            """Error with dried grapes."""
+            raise titr.dc.InputError("test error")
+
+        monkeypatch.setattr("titr_main.import_from_outlook", lambda _: _raise_in_err())
+        titr.main(args)
+        captured = capsys.readouterr()
+        assert titr.TITR_DB != "titr_test.db"
+        assert "test error" in captured.out
 
 
 valid_time_entries = [
