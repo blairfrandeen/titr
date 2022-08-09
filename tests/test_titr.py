@@ -57,7 +57,17 @@ def titr_default_config(monkeypatch, tmp_path):
     yield test_config_path
 
 
-#  @pytest.mark.xfail
+@pytest.mark.xfail
+def test_deep_work(console):
+    """Cases to test:
+    - No deep work at all
+    - DW total, but none in last 365
+    - DW in past 365
+    """
+    titr.deep_work(console)
+    assert 0
+
+
 def test_timecard(console):
     # set console to arbitrary date in past
     console.date = datetime.date(2020, 8, 6)  # weekday = 3 (thurs)
@@ -387,6 +397,12 @@ def test_add_entry(console, monkeypatch):
     mock_parse["duration"] = 4
     titr.add_entry(console, mock_inputs)
     assert console.time_entries[1].duration == 4
+
+    monkeypatch.setattr(titr, "_parse_time_entry", lambda *_: None)
+    console.outlook_item = (2, 2, "test outlook")
+    titr.add_entry(console, 0)
+    assert console.time_entries[2].duration == 2
+    assert console.time_entries[2].comment == "test outlook"
 
 
 @pytest.mark.parametrize(

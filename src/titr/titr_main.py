@@ -498,11 +498,15 @@ def deep_work(console: ConsoleSession) -> float:
     """
     cursor.execute(get_dw_total)
     dw_total = cursor.fetchone()[0]
+    if dw_total is None:
+        dw_total = 0
     get_dw_last_365 = get_dw_total + " AND date>=(?)"
 
     last_year = datetime.date.today() - datetime.timedelta(days=365)
     cursor.execute(get_dw_last_365, [last_year])
     dw_last_365 = cursor.fetchone()[0]
+    if dw_last_365 is None:
+        dw_last_365 = 0
     w1, w2, w3, w4 = 15, 12, 18, 15  # column widths
     print(
         Style.BRIGHT
