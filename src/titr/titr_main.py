@@ -375,9 +375,6 @@ def write_db(console: ConsoleSession) -> None:  # pragma: no cover
     # Write the time entries to the database
     db_write_time_log(console, session_id)
 
-    # Copy entries to clipboard in case we are still using Excel
-    copy_output(console)
-
     # Clear all time entries so they aren't entered a second time
     clear_entries(console)
     print(f"Commited entries to {TITR_DB}.")
