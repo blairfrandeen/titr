@@ -2,6 +2,19 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.0 (2022-08-10)
+### Feature
+* Added --outlook (-o) flag to start in outlook mode ([`bcd663e`](https://github.com/blairfrandeen/titr/commit/bcd663e249ad251d197927e83ca612075b9770b7))
+
+### Fix
+* Removed copy to clipboard on commit ([`2e76c78`](https://github.com/blairfrandeen/titr/commit/2e76c78dcb9ee8b1c5b2d6d84c56088ddd6c696e))
+* Crash with deep work command ([`7a4c649`](https://github.com/blairfrandeen/titr/commit/7a4c649cb4b4f3c299676766309f413dca6946fb))
+* Add backwards compatibility for database ([`5778797`](https://github.com/blairfrandeen/titr/commit/57787972862dc032d3200dd69ab210b832117600))
+* Improve documentation for add function ([`1e840dd`](https://github.com/blairfrandeen/titr/commit/1e840dd65616c8fbe743cf7d5021780569e8dc7e))
+* Catch nan time durations ([`42278c3`](https://github.com/blairfrandeen/titr/commit/42278c37e4b15af682271b3b6b89a0165dc58ad0))
+* Replace Value and TypeError with InputError ([`6d3bc6a`](https://github.com/blairfrandeen/titr/commit/6d3bc6aa308312e082907fe8cafea9775d954f2a))
+* Raise input errors instead of value/type errors for scale function. ([`8e1e953`](https://github.com/blairfrandeen/titr/commit/8e1e953258664f94ae22b062df705f43246d4ca9))
+
 ## v0.5.0 (2022-08-02)
 ### Feature
 * Add export command for basic export to CSV from sqlite3 database. ([`571a3de`](https://github.com/blairfrandeen/titr/commit/571a3de8d91859c91a1923d31bcaab9faba9092b))
