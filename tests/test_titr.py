@@ -271,6 +271,9 @@ def test_main(monkeypatch, capsys):
         outlook: bool = False
         testdb: bool = False
 
+        def __contains__(self, name):
+            return name in dir(self)
+
     args: MockArgs = MockArgs()
 
     # Ensure testdb arg is working

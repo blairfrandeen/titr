@@ -42,17 +42,18 @@ import titr.datum_console as dc
 CONFIG_FILE: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.cfg")
 TITR_DB: str = os.path.join(os.path.expanduser("~"), ".titr", "titr.db")
 COLUMN_WIDTHS = [12, 8, 22, 22, 24]
-WELCOME_MSG = f"""
-Welcome to titr. Version {__version__}. DB v{__db_user_version__}.
-https://github.com/blairfrandeen/titr"""
+# fmt: off
+WELCOME_MSG = (
+f"""Welcome to titr. Version {__version__}. DB v{__db_user_version__}.
+https://github.com/blairfrandeen/titr""") #fmt: on
 
 
-def main(args: argparse.Namespace) -> None:
+def main(args: Optional[argparse.Namespace] = None) -> None:
     print(WELCOME_MSG)
-    if args.testdb:
+    if args and args.testdb:
         TITR_DB = "titr_test.db"
     with ConsoleSession() as cs:
-        if args.outlook:
+        if args and "outlook" in args:  # args.outlook:
             try:
                 import_from_outlook(cs)
             except dc.InputError as err:
@@ -1235,8 +1236,6 @@ def parse_args() -> argparse.Namespace:
     )
     args = parser.parse_args()
 
-    print(f"{args=}")
-    print(f"{type(args)=}")
     return args
 
 
