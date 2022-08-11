@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.1 (2022-08-10)
+### Fix
+* Fix crash when running with entry point and no arguments. ([`ba29a65`](https://github.com/blairfrandeen/titr/commit/ba29a65ffa78653872e2a99ad36e7944e3037aca))
+
 ## v0.6.0 (2022-08-10)
 ### Feature
 * Added --outlook (-o) flag to start in outlook mode ([`bcd663e`](https://github.com/blairfrandeen/titr/commit/bcd663e249ad251d197927e83ca612075b9770b7))
