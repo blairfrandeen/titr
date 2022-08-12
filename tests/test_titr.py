@@ -31,8 +31,22 @@ def console(monkeypatch, db_connection):
 
 
 @pytest.fixture
-def time_entry(console):
-    te = titr.TimeEntry(console, duration=2, comment="test entry")
+def time_entry(
+    console,
+    date=datetime.date.today(),
+    duration=1,
+    category=2,
+    task="i",
+    comment="default test entry",
+):
+    te = titr.TimeEntry(
+        console,
+        duration=duration,
+        date=date,
+        category=category,
+        task=task,
+        comment=comment,
+    )
     yield te
 
 
@@ -57,15 +71,33 @@ def titr_default_config(monkeypatch, tmp_path):
     yield test_config_path
 
 
-@pytest.mark.xfail
-def test_deep_work(console):
+def test_query_dw(console, monkeypatch, time_entry):
     """Cases to test:
     - No deep work at all
     - DW total, but none in last 365
     - DW in past 365
     """
-    titr.deep_work(console)
-    assert 0
+    dw_total, dw_last_yr = titr._query_deep_work(console)
+    assert dw_total == 0
+    assert dw_last_yr == 0
+
+    console.time_entries.append(
+        titr.TimeEntry(
+            console, category=2, date=datetime.date(1984, 6, 17), duration=11.53
+        )
+    )
+    titr.write_db(console)
+    dw_total, dw_last_yr = titr._query_deep_work(console)
+    assert dw_total == 11.53
+    assert dw_last_yr == 0
+
+    console.time_entries.append(
+        titr.TimeEntry(console, category=2, date=datetime.date.today(), duration=8)
+    )
+    titr.write_db(console)
+    dw_total, dw_last_yr = titr._query_deep_work(console)
+    assert dw_total == 19.53
+    assert dw_last_yr == 8
 
 
 def test_timecard(console):
