@@ -32,7 +32,6 @@ def console(monkeypatch, db_connection):
 
 @pytest.fixture
 def time_entry(
-    console,
     date=datetime.date.today(),
     duration=1,
     category=2,
@@ -40,7 +39,6 @@ def time_entry(
     comment="default test entry",
 ):
     te = titr.TimeEntry(
-        console,
         duration=duration,
         date=date,
         category=category,
@@ -81,18 +79,16 @@ def test_query_dw(console, monkeypatch, time_entry):
     assert dw_total == 0
     assert dw_last_yr == 0
 
-    console.time_entries.append(
-        titr.TimeEntry(
-            console, category=2, date=datetime.date(1984, 6, 17), duration=11.53
-        )
+    console.add_entry(
+        titr.TimeEntry(category=2, date=datetime.date(1984, 6, 17), duration=11.53)
     )
     titr.write_db(console)
     dw_total, dw_last_yr = titr._query_deep_work(console)
     assert dw_total == 11.53
     assert dw_last_yr == 0
 
-    console.time_entries.append(
-        titr.TimeEntry(console, category=2, date=datetime.date.today(), duration=8)
+    console.add_entry(
+        titr.TimeEntry(category=2, date=datetime.date.today(), duration=8)
     )
     titr.write_db(console)
     dw_total, dw_last_yr = titr._query_deep_work(console)
@@ -118,9 +114,7 @@ def test_timecard(console):
         (2020, 8, 10),  # monday after
         (2020, 9, 11),  # after current week
     ]:
-        console.time_entries.append(
-            titr.TimeEntry(console, duration=1, date=datetime.date(*date_tuple))
-        )
+        console.add_entry(titr.TimeEntry(duration=1, date=datetime.date(*date_tuple)))
 
     # Commit to the database
     titr.write_db(console)
@@ -236,7 +230,7 @@ def test_scale_duration(console, capsys, initial_times, user_input, expected_tim
     if not isinstance(expected_times, type):
         console.time_entries = []
         for duration in initial_times:
-            console.time_entries.append(titr.TimeEntry(console, duration))
+            console.add_entry(titr.TimeEntry(duration))
         titr.scale_time_entries(console, user_input)
         for index, entry in enumerate(console.time_entries):
             assert entry.duration == expected_times[index]
@@ -246,7 +240,7 @@ def test_scale_duration(console, capsys, initial_times, user_input, expected_tim
 
 
 def test_preview(console, time_entry, capsys):
-    console.time_entries.append(time_entry)
+    console.add_entry(time_entry)
     titr.preview_output(console)
     captured = capsys.readouterr()
     assert "test entry" in captured.out
@@ -260,7 +254,7 @@ def test_copy(console, time_entry):
     assert clipboard == "testing 123"
 
     for _ in range(3):
-        console.time_entries.append(time_entry)
+        console.add_entry(time_entry)
     titr.copy_output(console)
     clipboard = pyperclip.paste()
     assert "test entry" in pyperclip.paste()
@@ -268,8 +262,9 @@ def test_copy(console, time_entry):
     assert len(clipboard.split("\n")[0].split("\t")) == 5
 
 
+@pytest.mark.xfail
 def test_time_entry(console):
-    te = titr.TimeEntry(console, 2)
+    te = titr.TimeEntry(2)
     assert te.category == console.config.default_category
     assert te.task == console.config.default_task
     assert te.comment == ""

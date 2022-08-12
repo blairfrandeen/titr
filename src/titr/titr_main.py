@@ -45,7 +45,8 @@ COLUMN_WIDTHS = [12, 8, 22, 22, 24]
 # fmt: off
 WELCOME_MSG = (
 f"""Welcome to titr. Version {__version__}. DB v{__db_user_version__}.
-https://github.com/blairfrandeen/titr""") #fmt: on
+https://github.com/blairfrandeen/titr""")
+# fmt: on
 
 
 def main(args: Optional[argparse.Namespace] = None) -> None:
@@ -64,8 +65,6 @@ def main(args: Optional[argparse.Namespace] = None) -> None:
 ###########
 # CLASSES #
 ###########
-
-
 @dataclass
 class Config:
     outlook_account: str = ""
@@ -83,56 +82,20 @@ class Config:
 
 
 @dataclass
-class ConsoleSession:
-    date: datetime.datetime.date = datetime.date.today()
-    outlook_item: Optional[Tuple[float, int, str]] = field(default_factory=tuple)
-    time_entries: """List[TimeEntry]""" = field(default_factory=list)
-
-    def __post_init__(self) -> None:
-        # Populate the task and category lists in the database from the titr.cfg
-        # File, which has already been loaded into the console session
-        self.config: Config = load_config()
-        self.db_connection: sqlite3.Connection = db_initialize()
-        db_populate_task_category_lists(self)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args) -> None:
-        # When opened with a context manager, this will
-        # safely close the connection in case of crash or system exist.
-        self.db_connection.close()
-
-    @property
-    def total_duration(self) -> float:
-        return round(sum([entry.duration for entry in self.time_entries]), 2)
-
-
 class TimeEntry:
     """Class to capture data for time entries"""
 
-    def __init__(
-        self,
-        session: ConsoleSession,
-        duration: float,
-        category: int = None,
-        task: str = None,
-        comment: str = "",
-        date: datetime.date = datetime.date.today(),
-    ) -> None:
-        # TODO: Refactor so TimeEntry is not dependent on ConsoleSession
-        self.duration: float = duration
-        self.category = (
-            session.config.default_category if category is None else category
-        )
-        self.task = session.config.default_task if task is None else task
-        self.comment: str = comment
-        self.date: datetime.date = date
+    duration: float
+    category: Optional[int] = None
+    task: Optional[str] = None
+    date: datetime.date = datetime.date.today()
+    timestamp: datetime.datetime = datetime.datetime.today()
+    comment: str = ""
+    #  tsk_str: str = field()
+    #  cat_str: str = field()
 
-        self.timestamp: datetime.datetime = datetime.datetime.today()
+    def __post_init__(self) -> None:
         self.date_str: str = self.date.isoformat()
-        self.cat_str = session.config.category_list[self.category]
-        self.tsk_str = session.config.task_list[self.task.lower()]
 
     def __repr__(self):
         return f"{self.date_str},{self.duration},{self.task},{self.category}"
@@ -188,6 +151,42 @@ class TimeEntry:
         return self_str.strip()
 
 
+@dataclass
+class ConsoleSession:
+    date: datetime.date = datetime.date.today()
+    outlook_item: Optional[tuple] = field(default_factory=tuple)
+    time_entries: list = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        # Populate the task and category lists in the database from the titr.cfg
+        # File, which has already been loaded into the console session
+        self.config: Config = load_config()
+        self.db_connection: sqlite3.Connection = db_initialize()
+        db_populate_task_category_lists(self)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args) -> None:
+        # When opened with a context manager, this will
+        # safely close the connection in case of crash or system exist.
+        self.db_connection.close()
+
+    def add_entry(self, entry: TimeEntry):
+        entry.category = (
+            self.config.default_category if entry.category is None else entry.category
+        )
+        entry.task = self.config.default_task if entry.task is None else entry.task
+
+        entry.cat_str = self.config.category_list[entry.category]
+        entry.tsk_str = self.config.task_list[entry.task.lower()]
+        self.time_entries.append(entry)
+
+    @property
+    def total_duration(self) -> float:
+        return round(sum([entry.duration for entry in self.time_entries]), 2)
+
+
 #####################
 # CONSOLE FUNCTIONS #
 #####################
@@ -235,7 +234,7 @@ def add_entry(console, user_input: str) -> None:
             if key not in entry_args.keys():
                 entry_args[key] = console.outlook_item[index]
     if entry_args and entry_args["duration"] != 0:
-        console.time_entries.append(TimeEntry(console, date=console.date, **entry_args))
+        console.add_entry(TimeEntry(date=console.date, **entry_args))
         print(console.time_entries[-1])
 
 
@@ -486,9 +485,8 @@ def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
     return week_total_hours
 
 
-
 @dc.ConsoleCommand(name="deepwork", aliases=["dw"])
-def deep_work(console: ConsoleSession) -> None: # pragma: no cover
+def deep_work(console: ConsoleSession) -> None:  # pragma: no cover
     """
     Show total deep work and deep work over past 365 days.
 
@@ -506,7 +504,7 @@ def deep_work(console: ConsoleSession) -> None: # pragma: no cover
         )
         + Style.NORMAL
     )
-    goal_color = (
+    goal_color: str = (
         Fore.GREEN if dw_last_365 >= console.config.deep_work_goal else Fore.RED
     )
     print(
@@ -1230,6 +1228,7 @@ def parse_args() -> argparse.Namespace:
 
     return args
 
+
 def _query_deep_work(console: ConsoleSession) -> tuple[float]:
     """Query the database for deep work hours.
     Returns tuple of total and total over past 365 days."""
@@ -1253,6 +1252,7 @@ def _query_deep_work(console: ConsoleSession) -> tuple[float]:
         dw_last_365 = 0.0
 
     return dw_total, dw_last_365
+
 
 if __name__ == "__main__":
     args: argparse.Namespace = parse_args()
