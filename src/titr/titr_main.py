@@ -82,21 +82,25 @@ class Config:
     incidental_tasks: list[str] = field(default_factory=list)
 
 
+@dataclass
 class ConsoleSession:
-    def __init__(self) -> None:
-        self.time_entries: List[TimeEntry] = []
-        self.date = datetime.date.today()
-        self.config = load_config()
-        self.outlook_item: Optional[Tuple[float, int, str]] = None
-        self.db_connection: sqlite3.Connection = db_initialize()
+    date: datetime.datetime.date = datetime.date.today()
+    outlook_item: Optional[Tuple[float, int, str]] = field(default_factory=tuple)
+    time_entries: """List[TimeEntry]""" = field(default_factory=list)
+
+    def __post_init__(self) -> None:
         # Populate the task and category lists in the database from the titr.cfg
         # File, which has already been loaded into the console session
+        self.config: Config = load_config()
+        self.db_connection: sqlite3.Connection = db_initialize()
         db_populate_task_category_lists(self)
 
     def __enter__(self):
         return self
 
     def __exit__(self, *args) -> None:
+        # When opened with a context manager, this will
+        # safely close the connection in case of crash or system exist.
         self.db_connection.close()
 
     @property
