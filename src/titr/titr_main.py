@@ -116,6 +116,7 @@ class TimeEntry:
         comment: str = "",
         date: datetime.date = datetime.date.today(),
     ) -> None:
+        # TODO: Refactor so TimeEntry is not dependent on ConsoleSession
         self.duration: float = duration
         self.category = (
             session.config.default_category if category is None else category
@@ -481,30 +482,18 @@ def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
     return week_total_hours
 
 
+
 @dc.ConsoleCommand(name="deepwork", aliases=["dw"])
-def deep_work(console: ConsoleSession) -> float:
+def deep_work(console: ConsoleSession) -> None: # pragma: no cover
     """
     Show total deep work and deep work over past 365 days.
 
     Deep work goal currently set in source code to 300 hours."""
-    cursor = console.db_connection.cursor()
+    dw_total, dw_last_365 = _query_deep_work(console)
+    if dw_total <= 0:
+        print("No deep work hours found.")
+        return None
 
-    get_dw_total = """--sql
-        SELECT sum(duration) FROM time_log t
-        JOIN categories c on t.category_id=c.id
-        WHERE c.name = 'Deep Work'
-    """
-    cursor.execute(get_dw_total)
-    dw_total = cursor.fetchone()[0]
-    if dw_total is None:
-        dw_total = 0
-    get_dw_last_365 = get_dw_total + " AND date>=(?)"
-
-    last_year = datetime.date.today() - datetime.timedelta(days=365)
-    cursor.execute(get_dw_last_365, [last_year])
-    dw_last_365 = cursor.fetchone()[0]
-    if dw_last_365 is None:
-        dw_last_365 = 0
     w1, w2, w3, w4 = 15, 12, 18, 15  # column widths
     print(
         Style.BRIGHT
@@ -526,7 +515,6 @@ def deep_work(console: ConsoleSession) -> float:
         + "{:<{}.0f}".format(console.config.deep_work_goal, w4)
         + Style.NORMAL
     )
-    return dw_total
 
 
 @dc.ConsoleCommand(name="outlook", aliases=["o"], enabled=OUTLOOK_ENABLED)
@@ -1238,6 +1226,29 @@ def parse_args() -> argparse.Namespace:
 
     return args
 
+def _query_deep_work(console: ConsoleSession) -> tuple[float]:
+    """Query the database for deep work hours.
+    Returns tuple of total and total over past 365 days."""
+    cursor = console.db_connection.cursor()
+
+    get_dw_total = """--sql
+        SELECT sum(duration) FROM time_log t
+        JOIN categories c on t.category_id=c.id
+        WHERE c.name = 'Deep Work'
+    """
+    cursor.execute(get_dw_total)
+    dw_total = cursor.fetchone()[0]
+    if dw_total is None:
+        return 0.0, 0.0
+
+    get_dw_last_365 = get_dw_total + " AND date>=(?)"
+    last_year = datetime.date.today() - datetime.timedelta(days=365)
+    cursor.execute(get_dw_last_365, [last_year])
+    dw_last_365 = cursor.fetchone()[0]
+    if dw_last_365 is None:
+        dw_last_365 = 0.0
+
+    return dw_total, dw_last_365
 
 if __name__ == "__main__":
     args: argparse.Namespace = parse_args()
