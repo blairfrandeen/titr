@@ -90,9 +90,9 @@ class TimeEntry:
     task: Optional[str] = None
     date: datetime.date = datetime.date.today()
     timestamp: datetime.datetime = datetime.datetime.today()
-    comment: str = ""
-    #  tsk_str: str = field()
-    #  cat_str: str = field()
+    comment: str = field(default_factory=str)
+    cat_str: str = field(default_factory=str)
+    tsk_str: str = field(default_factory=str)
 
     def __post_init__(self) -> None:
         self.date_str: str = self.date.isoformat()
@@ -491,6 +491,8 @@ def deep_work(console: ConsoleSession) -> None:  # pragma: no cover
     Show total deep work and deep work over past 365 days.
 
     Deep work goal currently set in source code to 300 hours."""
+    dw_total: float
+    dw_last_365: float
     dw_total, dw_last_365 = _query_deep_work(console)
     if dw_total <= 0:
         print("No deep work hours found.")
@@ -1229,7 +1231,7 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def _query_deep_work(console: ConsoleSession) -> tuple[float]:
+def _query_deep_work(console: ConsoleSession) -> tuple[float, float]:
     """Query the database for deep work hours.
     Returns tuple of total and total over past 365 days."""
     cursor = console.db_connection.cursor()
