@@ -1,11 +1,12 @@
 import configparser
-from dataclasses import dataclass
 import datetime
-import pytest
-import titr_main as titr  # TODO: clean up into more pure import
+from dataclasses import dataclass
+from typing import Optional
 
-#  from datum_console import InputError
 import pyperclip
+import pytest
+
+import titr_main as titr  # TODO: clean up into more pure import
 
 
 TEST_DB = ":memory:"
@@ -13,11 +14,12 @@ TEST_DB = ":memory:"
 
 
 @pytest.fixture
-def db_connection():
+def db_connection(monkeypatch):
     # Remove old database file if it exists
     if TEST_DB != ":memory:":
         os.remove(TEST_DB)
-    connection = titr.db_initialize(TEST_DB, test_flag=True)
+    monkeypatch.setattr("titr_main.TITR_DB", TEST_DB)
+    connection = titr.db_initialize(test_flag=True)
     yield connection
     connection.commit()
     connection.close()
@@ -297,6 +299,8 @@ def test_main(monkeypatch, capsys):
 
         outlook: bool = False
         testdb: bool = False
+        start: Optional[list[str]] = None
+        end: Optional[list[str]] = None
 
         def __contains__(self, name):
             return name in dir(self)
