@@ -52,8 +52,62 @@ https://github.com/blairfrandeen/titr""")
 def main(args: Optional[argparse.Namespace] = None) -> None:
     print(WELCOME_MSG)
     if args and args.testdb:
+        global TITR_DB  # TODO: Clean this up, get away from relying on global
         TITR_DB = "titr_test.db"
+        print(f"Using Test Database: {TITR_DB}")
     with ConsoleSession() as cs:
+        # For starting a new timed entry
+        if args and args.start is not None:
+            # add zero in front to ensure pattern match and zero duration
+            input_str = "0 " + " ".join(args.start)
+            # TODO: Have _parse_time_entry return a TimeEntry, not a dict
+            timed_entry = cs.add_entry(
+                TimeEntry(
+                    **_parse_time_entry(cs, input_str),
+                    start_ts=datetime.datetime.today(),
+                )
+            )
+            print(
+                f"Starting Activity Timer at {timed_entry.start_ts.strftime('%D %X')}"
+            )
+            print(  # TODO: Clean up & prettify formatting
+                f"Task: {timed_entry.tsk_str}. "
+                + f"Category: {timed_entry.cat_str}. "
+                + f"Comment: {timed_entry.comment}"
+            )
+
+            # write the entry to the database
+            write_db(cs)
+
+            # exit titr
+            exit(0)
+        elif args and args.end is not None:
+            # find the latest entry in the database
+            # that has zero duration
+            query_last_zero_entry = """--sql
+                SELECT id, category_id, task_id, comment FROM time_log
+                WHERE duration = 0
+                ORDER BY date DESC LIMIT 1
+                """
+            cursor = cs.db_connection.cursor()
+            cursor.execute(query_last_zero_entry)
+            last_entry_id = cursor.fetchone()
+            if last_entry_id is None:
+                raise Exception("No entries found in database.")
+            print(f"Found entry id {last_entry_id=} to update.")
+            entry_duration = 2.22  # TODO: Replace with real time worked
+
+            input_str = f"{entry_duration} " + " ".join(args.end)
+            timed_entry = cs.add_entry(
+                TimeEntry(
+                    **_parse_time_entry(cs, input_str),
+                    end_ts=datetime.datetime.today(),
+                )
+            )
+
+            # exit titr
+            exit(0)
+
         if args and "outlook" in args:  # args.outlook:
             try:
                 import_from_outlook(cs)
@@ -89,7 +143,8 @@ class TimeEntry:
     category: Optional[int] = None
     task: Optional[str] = None
     date: datetime.date = datetime.date.today()
-    timestamp: datetime.datetime = datetime.datetime.today()
+    start_ts: Optional[datetime.datetime] = datetime.datetime.today()
+    end_ts: Optional[datetime.datetime] = None
     comment: str = field(default_factory=str)
     cat_str: str = field(default_factory=str)
     tsk_str: str = field(default_factory=str)
@@ -172,7 +227,7 @@ class ConsoleSession:
         # safely close the connection in case of crash or system exist.
         self.db_connection.close()
 
-    def add_entry(self, entry: TimeEntry):
+    def add_entry(self, entry: TimeEntry) -> TimeEntry:
         entry.category = (
             self.config.default_category if entry.category is None else entry.category
         )
@@ -181,6 +236,7 @@ class ConsoleSession:
         entry.cat_str = self.config.category_list[entry.category]
         entry.tsk_str = self.config.task_list[entry.task.lower()]
         self.time_entries.append(entry)
+        return entry
 
     @property
     def total_duration(self) -> float:
@@ -971,11 +1027,10 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]
 ######################
 # DATABASE FUNCTIONS #
 ######################
-def db_initialize(
-    database_file: str = TITR_DB, test_flag: bool = False
-) -> sqlite3.Connection:
+def db_initialize(test_flag: bool = False) -> sqlite3.Connection:
     """Initialize the database, and create all tables."""
-    db_connection = sqlite3.connect(database_file)
+    print(f"MAKING DB CONNECTION AT {TITR_DB=}")
+    db_connection = sqlite3.connect(TITR_DB)
     cursor = db_connection.cursor()
 
     # Create time log table
@@ -1225,6 +1280,18 @@ def parse_args() -> argparse.Namespace:
         "--testdb",
         action="store_true",
         help="use a test database file in the local folder",
+    )
+    parser.add_argument(
+        "--start",
+        nargs="*",
+        metavar="category task comment",
+        help="Start timing your work.",
+    )
+    parser.add_argument(
+        "--end",
+        nargs="*",
+        metavar="category task comment",
+        help="Stop timing your work.",
     )
     args = parser.parse_args()
 
