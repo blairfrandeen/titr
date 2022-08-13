@@ -142,24 +142,21 @@ class TimeEntry:
     duration: float
     category: Optional[int] = None
     task: Optional[str] = None
-    date: datetime.date = datetime.date.today()
-    start_ts: Optional[datetime.datetime] = datetime.datetime.today()
+    date: Optional[datetime.date] = None
+    start_ts: Optional[datetime.datetime] = None
     end_ts: Optional[datetime.datetime] = None
     comment: str = field(default_factory=str)
     cat_str: str = field(default_factory=str)
     tsk_str: str = field(default_factory=str)
 
-    def __post_init__(self) -> None:
-        self.date_str: str = self.date.isoformat()
-
     def __repr__(self):
-        return f"{self.date_str},{self.duration},{self.task},{self.category}"
+        return f"{self.date.isoformat()},{self.duration},{self.task},{self.category}"
 
     @property
     def tsv_str(self):  # pragma: no cover
         tsv_str: str = "\t".join(
             [
-                self.date_str,
+                self.date.isoformat(),
                 str(self.duration),
                 self.tsk_str,
                 self.cat_str,
@@ -182,7 +179,7 @@ class TimeEntry:
         )
         self_str = (
             "{date:{w0}}{duration:<{w1}.2f}{task:{w2}}{cat:{w3}}{comment:{w4}}".format(
-                date=self.date_str,
+                date=self.date.isoformat(),
                 duration=self.duration,
                 task=textwrap.shorten(self.tsk_str, w2 - 1, break_on_hyphens=False),
                 cat=textwrap.shorten(self.cat_str, w3 - 1, break_on_hyphens=False),
@@ -227,14 +224,18 @@ class ConsoleSession:
         # safely close the connection in case of crash or system exist.
         self.db_connection.close()
 
-    def add_entry(self, entry: TimeEntry) -> TimeEntry:
-        entry.category = (
-            self.config.default_category if entry.category is None else entry.category
-        )
-        entry.task = self.config.default_task if entry.task is None else entry.task
+    def add_entry(self, entry: TimeEntry, set_defaults: bool = True) -> TimeEntry:
+        entry.date = self.date if not entry.date else entry.date
+        if set_defaults:
+            entry.category = (
+                self.config.default_category
+                if entry.category is None
+                else entry.category
+            )
+            entry.task = self.config.default_task if entry.task is None else entry.task
 
-        entry.cat_str = self.config.category_list[entry.category]
-        entry.tsk_str = self.config.task_list[entry.task.lower()]
+            entry.cat_str = self.config.category_list[entry.category]
+            entry.tsk_str = self.config.task_list[entry.task.lower()]
         self.time_entries.append(entry)
         return entry
 
@@ -282,15 +283,20 @@ def add_help(console, *args):  # pragma: no cover
 @dc.ConsolePattern(pattern=time_entry_pattern, name="add_entry")
 def add_entry(console, user_input: str) -> None:
     """Add a new entry to the time log."""
-    entry_args: Optional[Dict[Any, Any]] = _parse_time_entry(console, user_input)
+    new_entry = _parse_time_entry(console, user_input)
     if console.outlook_item:
-        if not entry_args:
-            entry_args = dict()
-        for index, key in enumerate(["duration", "category", "comment"]):
-            if key not in entry_args.keys():
-                entry_args[key] = console.outlook_item[index]
-    if entry_args and entry_args["duration"] != 0:
-        console.add_entry(TimeEntry(date=console.date, **entry_args))
+        if not new_entry:
+            new_entry = TimeEntry(0)
+        # TODO: Consider cleaner refactor of below set of conditionals
+        if new_entry.duration == 0:
+            new_entry.duration = console.outlook_item[0]
+        if new_entry.category is None:
+            new_entry.category = console.outlook_item[1]
+        if new_entry.comment == "" or new_entry.comment is None:
+            new_entry.comment = console.outlook_item[2]
+
+    if new_entry and new_entry.duration != 0:
+        console.add_entry(new_entry)
         print(console.time_entries[-1])
 
 
@@ -511,7 +517,13 @@ def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
         # Print individual rows by task
         for task in totals_by_task:
             if task[2] not in console.config.incidental_tasks:
-                task_percentage: float = task[1] / (week_total_hours - total_incidental)
+                # TODO: Error handling in case of all incidental time
+                try:
+                    task_percentage: float = task[1] / (
+                        week_total_hours - total_incidental
+                    )
+                except ZeroDivisionError:
+                    task_percentage = float("nan")
                 task_adj_hrs: float = task[1] + total_incidental * task_percentage
             else:
                 task_percentage, task_adj_hrs = 0, 0
@@ -961,7 +973,7 @@ def load_config(config_file=CONFIG_FILE) -> Config:
     return config
 
 
-def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]:
+def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[TimeEntry]:
     """Parse a user input into a time entry.
 
     Returns None for blank entry
@@ -979,7 +991,8 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]
         raise dc.InputError("You're working too much.")
     if duration < 0:
         raise dc.InputError("You can't unwork.")
-    time_entry_arguments: dict = {"duration": duration}
+    new_entry = TimeEntry(duration)
+    #  time_entry_arguments: dict = {"duration": duration}
     entry_args: List[str] = user_input[1:]
     match entry_args:
         # No arguments, add entry with all defaults
@@ -991,24 +1004,24 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]
             and int(cat_key) in console.config.category_list.keys()
             and task.lower() in console.config.task_list.keys()
         ):
-            time_entry_arguments["category"] = int(cat_key)
-            time_entry_arguments["task"] = task
+            new_entry.category = int(cat_key)
+            new_entry.task = task
             if comment:
-                time_entry_arguments["comment"] = " ".join(comment).strip()
+                new_entry.comment = " ".join(comment).strip()
         # Category argument, no task argument
         case (str(cat_key), *comment) if (
             is_float(cat_key) and int(cat_key) in console.config.category_list.keys()
         ):
-            time_entry_arguments["category"] = int(cat_key)
+            new_entry.category = int(cat_key)
             if comment:
-                time_entry_arguments["comment"] = " ".join(comment).strip()
+                new_entry.comment = " ".join(comment).strip()
         # task argument, no category argument
         case (str(task), *comment) if (
             not is_float(task) and task.lower() in console.config.task_list.keys()
         ):
-            time_entry_arguments["task"] = task
+            new_entry.task = task
             if comment:
-                time_entry_arguments["comment"] = " ".join(comment).strip()
+                new_entry.comment = " ".join(comment).strip()
         # Comment only
         case (str(cat_key), str(task), *comment) if (
             not is_float(cat_key)
@@ -1016,12 +1029,11 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[dict]
         ):
             new_comment: str = (cat_key + " " + task + " " + " ".join(comment)).strip()
             if new_comment:
-                time_entry_arguments["comment"] = new_comment
+                new_entry.comment = "".join(new_comment).strip()
         case comment:
-            time_entry_arguments["comment"] = " ".join(comment).strip()
-            #  raise ValueError("Invalid arguments for time entry")
+            new_entry.comment = " ".join(comment).strip()
 
-    return time_entry_arguments
+    return new_entry
 
 
 ######################
