@@ -330,73 +330,37 @@ def test_main(monkeypatch, capsys):
 
 
 valid_time_entries = [
-    (
-        "3",
-        {
-            "duration": 3,
-        },
-    ),
-    (
-        "1 2 i",
-        {
-            "duration": 1,
-            "category": 2,
-            "task": "i",
-        },
-    ),
+    ("3", titr.TimeEntry(3)),
+    ("1 2 i", titr.TimeEntry(1, task="i", category=2)),
     (
         "7 2 i test string",
-        {
-            "duration": 7,
-            "category": 2,
-            "task": "i",
-            "comment": "test string",
-        },
+        titr.TimeEntry(7, task="i", category=2, comment="test string"),
     ),
     (
         "7 2 i TEST STRING",
-        {
-            "duration": 7,
-            "category": 2,
-            "task": "i",
-            "comment": "TEST STRING",
-        },
+        titr.TimeEntry(7, task="i", category=2, comment="TEST STRING"),
     ),
     (
         '.87 i a really "fun" meeting?',
-        {
-            "duration": 0.87,
-            "task": "i",
-            "comment": 'a really "fun" meeting?',
-        },
+        titr.TimeEntry(0.87, task="i", comment='a really "fun" meeting?'),
     ),
     (
         ".5 2 doing it right",
-        {
-            "duration": 0.5,
-            "category": 2,
-            "comment": "doing it right",
-        },
+        titr.TimeEntry(0.5, category=2, comment="doing it right"),
     ),
     (
         '1 "no comment lol"',
-        {
-            "duration": 1,
-            "comment": '"no comment lol"',
-        },
+        titr.TimeEntry(1, comment='"no comment lol"'),
     ),
     (
         "1 onewordcomment",
-        {
-            "duration": 1,
-            "comment": "onewordcomment",
-        },
+        titr.TimeEntry(1, comment="onewordcomment"),
     ),
     (
         "0 2 i no entry",
-        {"duration": 0, "comment": "no entry", "category": 2, "task": "i"},
+        titr.TimeEntry(0, comment="no entry", category=2, task="i"),
     ),
-    ("0", {"duration": 0}),
+    ("0", titr.TimeEntry(0)),
     ("", None),
 ]
 
@@ -423,19 +387,22 @@ def test_parse_invalid_entries(console, invalid_entry):
 
 def test_add_entry(console, monkeypatch):
     mock_inputs = "1 2 i terst"
-    mock_parse = {"duration": 5, "category": 3, "comment": "test item"}
+    mock_parse = titr.TimeEntry(
+        5, category=3, comment="test item"
+    )  # {"duration": 5, "category": 3, "comment": "test item"}
 
     monkeypatch.setattr(titr, "_parse_time_entry", lambda *_: mock_parse)
     titr.add_entry(console, mock_inputs)
     assert console.time_entries[0].duration == 5
-    mock_parse["duration"] = 4
+    mock_parse.duration = 4
     titr.add_entry(console, mock_inputs)
     assert console.time_entries[1].duration == 4
 
     monkeypatch.setattr(titr, "_parse_time_entry", lambda *_: None)
-    console.outlook_item = (2, 2, "test outlook")
-    titr.add_entry(console, 0)
-    assert console.time_entries[2].duration == 2
+    console.outlook_item = (1.234, 2, "test outlook")
+    titr.add_entry(console, "0")
+    assert console.time_entries[2].duration == 1.234
+    assert console.time_entries[2].category == 2
     assert console.time_entries[2].comment == "test outlook"
 
 
