@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.7.0 (2022-08-14)
+### Feature
+* Time activities from the command line ([`4aeae4d`](https://github.com/blairfrandeen/titr/commit/4aeae4d499e9210a21837ff2889f0575a3e6560f))
+
 ## v0.6.1 (2022-08-10)
 ### Fix
 * Fix crash when running with entry point and no arguments. ([`ba29a65`](https://github.com/blairfrandeen/titr/commit/ba29a65ffa78653872e2a99ad36e7944e3037aca))
