@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.7.1 (2022-08-14)
+### Fix
+* Enable command line arguments when using entry points after build. ([`47c3898`](https://github.com/blairfrandeen/titr/commit/47c3898d9270274dba3903e85c75609f1e8d1151))
+
 ## v0.7.0 (2022-08-14)
 ### Feature
 * Time activities from the command line ([`4aeae4d`](https://github.com/blairfrandeen/titr/commit/4aeae4d499e9210a21837ff2889f0575a3e6560f))
