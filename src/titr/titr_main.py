@@ -61,12 +61,10 @@ def main(args: Optional[argparse.Namespace] = None) -> None:
             # add zero in front to ensure pattern match and zero duration
             input_str = "0 " + " ".join(args.start)
             # TODO: Have _parse_time_entry return a TimeEntry, not a dict
-            timed_entry = cs.add_entry(
-                TimeEntry(
-                    **_parse_time_entry(cs, input_str),
-                    start_ts=datetime.datetime.today(),
-                )
-            )
+            timed_entry = _parse_time_entry(cs, input_str)
+            timed_entry.start_ts = datetime.datetime.today()
+            cs.add_entry(timed_entry, set_defaults=False)
+
             print(
                 f"Starting Activity Timer at {timed_entry.start_ts.strftime('%D %X')}"
             )
@@ -91,7 +89,7 @@ def main(args: Optional[argparse.Namespace] = None) -> None:
                 """
             cursor = cs.db_connection.cursor()
             cursor.execute(query_last_zero_entry)
-            last_entry_id = cursor.fetchone()
+            last_entry_id = _fetch_first(cursor)
             if last_entry_id is None:
                 raise Exception("No entries found in database.")
             print(f"Found entry id {last_entry_id=} to update.")
@@ -233,9 +231,9 @@ class ConsoleSession:
                 else entry.category
             )
             entry.task = self.config.default_task if entry.task is None else entry.task
-
             entry.cat_str = self.config.category_list[entry.category]
             entry.tsk_str = self.config.task_list[entry.task.lower()]
+
         self.time_entries.append(entry)
         return entry
 
@@ -469,7 +467,7 @@ def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
         date <= (?)
     """
     cursor.execute(get_week_total_hours, [week_start, week_end])
-    week_total_hours: Optional[float] = cursor.fetchone()[0]
+    week_total_hours: Optional[float] = _fetch_first(cursor)
 
     col_widths = [30, 8, 15, 12]
     inc_task_str = "('" + "', '".join(console.config.incidental_tasks) + "')"
@@ -497,7 +495,7 @@ def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
             get_total_incidental,
             [week_start, week_end],
         )
-        total_incidental: float = cursor.fetchone()[0]
+        total_incidental: float = _fetch_first(cursor, default=0)
         if total_incidental is None:
             total_incidental = 0
         print(  # HEADER ROW
@@ -1243,6 +1241,18 @@ def db_session_metadata(
     return session_id
 
 
+def _fetch_first(
+    cursor: sqlite3.Connection.cursor, default: Optional[Any] = None
+) -> Optional[Any]:
+    """Given the result of an sql query from a cursor.fetchone()
+    call, return the first element if it exists.
+
+    Adjust the default keyword argument if default other than
+    None is desired"""
+    query_result = cursor.fetchone()
+    return default if query_result is None else query_result[0]
+
+
 def db_write_time_log(console: ConsoleSession, session_id: int) -> None:
     """Write time entries from console session to database."""
     cursor = console.db_connection.cursor()
@@ -1263,9 +1273,9 @@ def db_write_time_log(console: ConsoleSession, session_id: int) -> None:
     for entry in console.time_entries:
         # TODO: Handling for no task ID found
         cursor.execute(get_task_id, [entry.task])
-        task_id = cursor.fetchone()[0]
+        task_id = _fetch_first(cursor)
         cursor.execute(get_category_id, [entry.category])
-        category_id = cursor.fetchone()[0]
+        category_id = _fetch_first(cursor)
         cursor.execute(
             write_entry,
             [
@@ -1321,14 +1331,14 @@ def _query_deep_work(console: ConsoleSession) -> tuple[float, float]:
         WHERE c.name = 'Deep Work'
     """
     cursor.execute(get_dw_total)
-    dw_total = cursor.fetchone()[0]
+    dw_total = _fetch_first(cursor)
     if dw_total is None:
         return 0.0, 0.0
 
     get_dw_last_365 = get_dw_total + " AND date>=(?)"
     last_year = datetime.date.today() - datetime.timedelta(days=365)
     cursor.execute(get_dw_last_365, [last_year])
-    dw_last_365 = cursor.fetchone()[0]
+    dw_last_365 = _fetch_first(cursor)
     if dw_last_365 is None:
         dw_last_365 = 0.0
 
