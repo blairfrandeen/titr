@@ -49,7 +49,8 @@ https://github.com/blairfrandeen/titr""")
 # fmt: on
 
 
-def main(args: Optional[argparse.Namespace] = None) -> None:
+def main() -> None:
+    args: argparse.Namespace = parse_args()
     print(WELCOME_MSG)
     if args and args.testdb:
         global TITR_DB  # TODO: Clean this up, get away from relying on global
@@ -1456,5 +1457,4 @@ def _query_deep_work(console: ConsoleSession) -> tuple[float, float]:
 
 
 if __name__ == "__main__":
-    args: argparse.Namespace = parse_args()
-    main(args)
+    main()
