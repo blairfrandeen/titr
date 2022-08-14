@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.7.2 (2022-08-14)
+### Fix
+* Address crash when using --start and --end arguments. ([`a17ad27`](https://github.com/blairfrandeen/titr/commit/a17ad27ae51face4e3f7a0797a80578935f02df0))
+
 ## v0.7.1 (2022-08-14)
 ### Fix
 * Enable command line arguments when using entry points after build. ([`47c3898`](https://github.com/blairfrandeen/titr/commit/47c3898d9270274dba3903e85c75609f1e8d1151))
