@@ -310,7 +310,7 @@ def test_main(monkeypatch, capsys):
     # Ensure testdb arg is working
     args.testdb = True
     with pytest.raises(SystemExit):
-        titr.main(args)
+        titr.main()
         assert titr.TITR_DB == "titr_test.db"
 
     # Ensure outlook arg is working
@@ -323,7 +323,7 @@ def test_main(monkeypatch, capsys):
             raise titr.dc.InputError("test error")
 
         monkeypatch.setattr("titr_main.import_from_outlook", lambda _: _raise_in_err())
-        titr.main(args)
+        titr.main()
         captured = capsys.readouterr()
         assert titr.TITR_DB != "titr_test.db"
         assert "test error" in captured.out

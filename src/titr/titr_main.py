@@ -1010,7 +1010,7 @@ def _start_timed_activity(cs: ConsoleSession, user_args: argparse.Namespace) -> 
     """Start timing an activity using the --start flag
     from the command line."""
     # add zero in front to ensure pattern match and zero duration
-    input_str: str = "0 " + " ".join(args.start)
+    input_str: str = "0 " + " ".join(user_args)
     timed_entry: Optional[TimeEntry] = _parse_time_entry(cs, input_str)
     if timed_entry is None:
         raise Exception("_parse_time_entry returned None, expected TimeEntry instance.")
@@ -1074,7 +1074,7 @@ def _end_timed_activity(cs: ConsoleSession, user_args: argparse.Namespace) -> No
     start_ts = datetime.datetime.strptime(start_ts, "%Y-%m-%d %X.%f")
 
     # use 0 duration for _parse_time entry
-    input_str = "0 " + " ".join(args.end)
+    input_str = "0 " + " ".join(user_args)
     final_entry: Optional[TimeEntry] = _parse_time_entry(cs, input_str)
     if final_entry is None:
         raise Exception("_parse_time_entry returned None, expected TimeEntry instance.")
