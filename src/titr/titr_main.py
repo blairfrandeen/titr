@@ -18,7 +18,7 @@ import sys
 import textwrap
 
 from dataclasses import dataclass, field
-from typing import Optional, Tuple, Dict, List, Any, Union
+from typing import Optional, Tuple, Dict, List, Any, Union, Callable
 
 from colorama import Fore, Style
 
@@ -57,124 +57,13 @@ def main(args: Optional[argparse.Namespace] = None) -> None:
         print(f"Using Test Database: {TITR_DB}")
     with ConsoleSession() as cs:
         # For starting a new timed entry
+        if args and args.start is not None and args.end is not None:
+            print("Error: Cannot simultaneously use --start and --end commands.")
+            exit(0)
         if args and args.start is not None:
-            # add zero in front to ensure pattern match and zero duration
-            input_str = "0 " + " ".join(args.start)
-            timed_entry = _parse_time_entry(cs, input_str)
-            timed_entry.start_ts = datetime.datetime.today()
-            cs.add_entry(timed_entry, set_defaults=False)
-
-            print(
-                f"Starting Activity Timer at {timed_entry.start_ts.strftime('%D %X')}"
-            )
-            print(  # TODO: Clean up & prettify formatting
-                f"Task: {timed_entry.tsk_str}. "
-                + f"Category: {timed_entry.cat_str}. "
-                + f"Comment: {timed_entry.comment}"
-            )
-
-            # write the entry to the database
-            write_db(cs, input_type="command")
-
-            # exit titr
-            exit(0)
-        # TODO: disallow simultaneous --start and --end tags
+            _start_timed_activity(cs, args.start)
         elif args and args.end is not None:
-            # find the latest entry in the database
-            # that has zero duration
-            query_last_zero_entry = """--sql
-                SELECT l.id, c.user_key, t.user_key, l.comment FROM time_log l
-                JOIN tasks t ON t.id = l.task_id
-                JOIN categories c ON c.id = l.category_id
-                WHERE l.duration = 0
-                """
-            #  JOIN sessions s on s.id = l.session_id
-            #  ORDER BY l.date DESC LIMIT 1
-            #  AND s.input_type = 'command'
-            query_last_zero_entry = """--sql
-                SELECT l.id, l.comment FROM time_log l
-                JOIN sessions s ON s.id = l.session_id
-                WHERE l.duration = 0
-                AND s.input_type = 'command'
-                ORDER BY l.date DESC limit 1
-            """
-            cursor = cs.db_connection.cursor()
-            cursor.execute(query_last_zero_entry)
-            last_entry = cursor.fetchone()
-            print(f"{last_entry=}")
-            if last_entry is None:
-                raise Exception("No entries found in database.")
-            entry_id, comment = last_entry
-
-            query_task = """--sql
-                SELECT t.user_key FROM time_log l
-                JOIN tasks t ON t.id = l.task_id
-                WHERE l.id = (?)
-            """
-            query_category = """--sql
-                SELECT c.user_key FROM time_log l
-                JOIN categories c ON c.id = l.category_id
-                WHERE l.id = (?)
-            """
-            cursor.execute(query_category, [entry_id])
-            category_id = _fetch_first(cursor)
-            cursor.execute(query_task, [entry_id])
-            task_id = _fetch_first(cursor)
-            print(f"{category_id=}")
-            print(f"{task_id=}")
-
-            entry_duration = 2.22  # TODO: Replace with real time worked
-
-            input_str = f"{entry_duration} " + " ".join(args.end)
-            final_entry = _parse_time_entry(cs, input_str)
-            final_entry.date = datetime.date.today()
-            final_entry.end_ts = datetime.datetime.today()
-            final_entry.comment = (
-                comment + " " + final_entry.comment
-                if final_entry.comment or comment
-                else None
-            )
-            print(f"{final_entry.comment=}")
-
-            def _prioritize(
-                initial_entry: Optional[str],
-                final_entry: Optional[str],
-                default: Union[int, str],
-            ) -> str:
-                """Apply logic for task and category entries.
-                Prioritize final entry, then initial entry, then default."""
-                if final_entry is not None:
-                    return final_entry
-                if initial_entry is None:
-                    return default
-                return initial_entry
-
-            final_entry.category = int(
-                _prioritize(
-                    category_id, final_entry.category, cs.config.default_category
-                )
-            )
-            final_entry.task = _prioritize(
-                task_id, final_entry.task, cs.config.default_task
-            )
-            cs.add_entry(final_entry)
-
-            print("The following entry will be added to the database:")
-            print(cs.time_entries[-1])
-
-            # write the entry to the database
-            confirm = input(
-                "Enter 'y' to confirm, 'delete' to remove task, any other key to exit: "
-            )
-            if confirm.lower() == "y":
-                write_db(cs, input_type="command")
-            elif confirm.lower() == "delete":
-                del_task = "DELETE FROM time_log WHERE id=(?)"
-                cursor.execute(del_task, [entry_id])
-                cs.db_connection.commit()
-
-            # exit titr
-            exit(0)
+            _end_timed_activity(cs, args.end)
 
         if args and "outlook" in args:  # args.outlook:
             try:
@@ -213,6 +102,7 @@ class TimeEntry:
     date: Optional[datetime.date] = None
     start_ts: Optional[datetime.datetime] = None
     end_ts: Optional[datetime.datetime] = None
+    time_log_id: Optional[int] = None
     comment: str = field(default_factory=str)
     cat_str: str = field(default_factory=str)
     tsk_str: str = field(default_factory=str)
@@ -576,7 +466,7 @@ def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
             get_total_incidental,
             [week_start, week_end],
         )
-        total_incidental: float = _fetch_first(cursor, default=0)
+        total_incidental: Optional[float] = _fetch_first(cursor, default=0)
         if total_incidental is None:
             total_incidental = 0
         print(  # HEADER ROW
@@ -1115,6 +1005,124 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[TimeE
     return new_entry
 
 
+def _start_timed_activity(cs: ConsoleSession, user_args: argparse.Namespace) -> None:
+    """Start timing an activity using the --start flag
+    from the command line."""
+    # add zero in front to ensure pattern match and zero duration
+    input_str: str = "0 " + " ".join(args.start)
+    timed_entry: Optional[TimeEntry] = _parse_time_entry(cs, input_str)
+    if timed_entry is None:
+        raise Exception("_parse_time_entry returned None, expected TimeEntry instance.")
+    timed_entry.start_ts = datetime.datetime.today()
+    cs.add_entry(timed_entry, set_defaults=False)
+
+    print(f"Starting Activity Timer at {timed_entry.start_ts.strftime('%D %X')}")
+    print(  # TODO: Clean up & prettify formatting
+        f"Task: {timed_entry.tsk_str}. "
+        + f"Category: {timed_entry.cat_str}. "
+        + f"Comment: {timed_entry.comment}"
+    )
+
+    # write the entry to the database
+    write_db(cs, input_type="command")
+
+    # exit titr
+    exit(0)
+
+
+def _end_timed_activity(cs: ConsoleSession, user_args: argparse.Namespace) -> None:
+    """Stop timing an activity using the --end flag
+    from the command line. Preview what will be entered
+    into the database prior to committing it."""
+
+    # search the databse for an active entry
+    query_last_zero_entry = """--sql
+        SELECT l.id, l.start_ts, l.comment FROM time_log l
+        JOIN sessions s ON s.id = l.session_id
+        WHERE l.duration = 0
+        AND l.end_ts IS NULL
+        AND s.input_type = 'command'
+        ORDER BY l.id DESC limit 1
+    """
+    cursor = cs.db_connection.cursor()
+    cursor.execute(query_last_zero_entry)
+    last_entry = cursor.fetchone()
+
+    if last_entry is None:  # exit if none found
+        print("No tasks in progress. Use titr --start to start one.")
+        exit(0)
+    entry_id, start_ts, comment = last_entry
+
+    query_task = """--sql
+        SELECT t.user_key FROM time_log l
+        JOIN tasks t ON t.id = l.task_id
+        WHERE l.id = (?)
+    """
+    cursor.execute(query_task, [entry_id])
+    task_id = _fetch_first(cursor)
+
+    query_category = """--sql
+        SELECT c.user_key FROM time_log l
+        JOIN categories c ON c.id = l.category_id
+        WHERE l.id = (?)
+    """
+    cursor.execute(query_category, [entry_id])
+    category_id = _fetch_first(cursor)
+
+    # convert timestamp stored in database to datetime object
+    start_ts = datetime.datetime.strptime(start_ts, "%Y-%m-%d %X.%f")
+
+    # use 0 duration for _parse_time entry
+    input_str = "0 " + " ".join(args.end)
+    final_entry: Optional[TimeEntry] = _parse_time_entry(cs, input_str)
+    if final_entry is None:
+        raise Exception("_parse_time_entry returned None, expected TimeEntry instance.")
+    final_entry.time_log_id = entry_id
+    final_entry.date = datetime.date.today()
+    final_entry.start_ts = start_ts
+    final_entry.end_ts = datetime.datetime.today()
+    if final_entry.start_ts is None or final_entry.end_ts is None:
+        raise TypeError("Found NoneType in final_entry start and/or end timestamps.")
+    final_entry.duration = (
+        final_entry.end_ts - final_entry.start_ts
+    ).total_seconds() / 3600
+    final_entry.comment = (
+        comment + " " + final_entry.comment if final_entry.comment or comment else None
+    )
+
+    def _prioritize(initial_entry, final_entry, default):
+        """Apply logic for task and category entries.
+        Prioritize final entry, then initial entry, then default."""
+        if final_entry is not None:
+            return final_entry
+        if initial_entry is None:
+            return default
+        return initial_entry
+
+    final_entry.category = int(
+        _prioritize(category_id, final_entry.category, cs.config.default_category)
+    )
+    final_entry.task = _prioritize(task_id, final_entry.task, cs.config.default_task)
+    cs.add_entry(final_entry)
+
+    print("The following entry will be added to the database:")
+    print(cs.time_entries[-1])
+
+    # write the entry to the database
+    confirm = input(
+        "Enter 'y' to confirm, 'delete' to remove task, any other key to exit: "
+    )
+    if confirm.lower() == "y":
+        write_db(cs, input_type="command")
+    elif confirm.lower() == "delete":
+        del_task = "DELETE FROM time_log WHERE id=(?)"
+        cursor.execute(del_task, [entry_id])
+        cs.db_connection.commit()
+
+    # exit titr
+    exit(0)
+
+
 ######################
 # DATABASE FUNCTIONS #
 ######################
@@ -1132,7 +1140,9 @@ def db_initialize(test_flag: bool = False) -> sqlite3.Connection:
             category_id INT,
             task_id INT,
             session_id INT,
-            comment TEXT
+            comment TEXT,
+            start_ts TIMESTAMP,
+            end_ts TIMESTAMP
         )
     """
     # Create category table
@@ -1206,6 +1216,16 @@ def db_update_version(db_connection: sqlite3.Connection, user_version: int) -> i
         if "input_type" not in sessions_columns:
             print(" Add input_type to sessions table...")
             cursor.execute("ALTER TABLE sessions ADD COLUMN input_type TEXT")
+
+    if user_version < 2:
+        # Add start and end timestamps to time log
+        time_log_columns = _get_column_names("time_log")
+        if "start_ts" not in time_log_columns:
+            print(" Add start_ts to time_log table...")
+            cursor.execute("ALTER TABLE time_log ADD COLUMN start_ts TEXT")
+        if "end_ts" not in time_log_columns:
+            print(" Add end_ts to time_log table...")
+            cursor.execute("ALTER TABLE time_log ADD COLUMN end_ts TEXT")
 
     # Set the user version to the current version
     cursor.execute("PRAGMA user_version={}".format(__db_user_version__))
@@ -1322,7 +1342,7 @@ def db_session_metadata(
 
 
 def _fetch_first(
-    cursor: sqlite3.Connection.cursor, default: Optional[Any] = None
+    cursor: sqlite3.Cursor, default: Optional[Any] = None
 ) -> Optional[Any]:
     """Given the result of an sql query from a cursor.fetchone()
     call, return the first element if it exists.
@@ -1337,8 +1357,13 @@ def db_write_time_log(console: ConsoleSession, session_id: int) -> None:
     """Write time entries from console session to database."""
     cursor = console.db_connection.cursor()
     write_entry = """--sql
-        INSERT INTO time_log (date, duration, category_id, task_id, comment, session_id)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO time_log (date, duration, category_id, task_id, comment, session_id, start_ts, end_ts)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """
+    update_entry = """--sql
+        UPDATE time_log SET (date, duration, category_id, task_id, comment, session_id, start_ts, end_ts) =
+        (?, ?, ?, ?, ?, ?, ?, ?)
+        WHERE id = (?)
     """
     get_task_id = """--sql
         SELECT id
@@ -1356,17 +1381,22 @@ def db_write_time_log(console: ConsoleSession, session_id: int) -> None:
         task_id = _fetch_first(cursor)
         cursor.execute(get_category_id, [entry.category])
         category_id = _fetch_first(cursor)
-        cursor.execute(
-            write_entry,
-            [
-                entry.date,
-                entry.duration,
-                category_id,
-                task_id,
-                entry.comment,
-                session_id,
-            ],
-        )
+        entry_parameters = [
+            entry.date,
+            entry.duration,
+            category_id,
+            task_id,
+            entry.comment,
+            session_id,
+            entry.start_ts,
+            entry.end_ts,
+        ]
+        if entry.time_log_id is not None:
+            # update existing entry
+            entry_parameters.append(entry.time_log_id)
+            cursor.execute(update_entry, entry_parameters)
+        else:
+            cursor.execute(write_entry, entry_parameters)
     console.db_connection.commit()
 
 
