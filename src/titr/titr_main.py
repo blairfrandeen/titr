@@ -418,7 +418,7 @@ def write_db(
 
 
 @dc.ConsoleCommand(name="timecard", aliases=["tc"])
-def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
+def show_weekly_timecard(console: ConsoleSession) -> float:
     """
     Show timecard summary for this week.
 
@@ -432,44 +432,24 @@ def show_weekly_timecard(console: ConsoleSession) -> Optional[float]:
     week_end: datetime.date = week_start + datetime.timedelta(days=6)
     cursor = console.db_connection.cursor()
 
-    get_week_total_hours: str = """--sql
-        SELECT sum(duration) FROM time_log WHERE
-        date >= (?)
-        AND
-        date <= (?)
+    get_totals_by_task: str = """--sql
+        SELECT t.name, sum(l.duration), t.user_key FROM time_log l
+        JOIN tasks t ON t.id = l.task_id
+        WHERE l.date >= (?) AND l.date <= (?)
+        GROUP BY l.task_id;
     """
-    cursor.execute(get_week_total_hours, [week_start, week_end])
-    week_total_hours: Optional[float] = _fetch_first(cursor)
+    cursor.execute(
+        get_totals_by_task,
+        [week_start, week_end],
+    )
+    totals_by_task: list[tuple[str, float, str]] = cursor.fetchall()
+    week_total_hours = _sum_grouped_tasks(totals_by_task)
 
     col_widths = [30, 8, 15, 12]
-    inc_task_str = "('" + "', '".join(console.config.incidental_tasks) + "')"
-    if week_total_hours is not None:
-        get_totals_by_task: str = """--sql
-            SELECT t.name, sum(l.duration), t.user_key FROM time_log l
-            JOIN tasks t ON t.id = l.task_id
-            WHERE l.date >= (?) AND l.date <= (?)
-            GROUP BY task_id;
-        """
-        get_total_incidental: str = """--sql
-            SELECT sum(l.duration) FROM time_log l
-            JOIN tasks t ON t.id = l.task_id
-            WHERE l.date >= (?) AND l.date <= (?)
-            AND t.user_key IN {}
-        """.format(
-            inc_task_str
+    if week_total_hours > 0:
+        total_incidental: float = _sum_grouped_tasks(
+            filter(lambda x: x[2] in console.config.incidental_tasks, totals_by_task)
         )
-        cursor.execute(
-            get_totals_by_task,
-            [week_start, week_end],
-        )
-        totals_by_task: list[tuple[str, float, str]] = cursor.fetchall()
-        cursor.execute(
-            get_total_incidental,
-            [week_start, week_end],
-        )
-        total_incidental: Optional[float] = _fetch_first(cursor, default=0)
-        if total_incidental is None:
-            total_incidental = 0
         print(  # HEADER ROW
             Style.BRIGHT
             + "{:{}}{:{}}{:{}}{:{}}".format(
@@ -1455,6 +1435,10 @@ def _query_deep_work(console: ConsoleSession) -> tuple[float, float]:
         dw_last_365 = 0.0
 
     return dw_total, dw_last_365
+
+
+def _sum_grouped_tasks(tasks: list[tuple[str, float, str]]) -> float:
+    return sum((item[1] for item in tasks))
 
 
 if __name__ == "__main__":
