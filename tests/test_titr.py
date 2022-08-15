@@ -1,5 +1,6 @@
 import configparser
 import datetime
+from argparse import ArgumentError
 from dataclasses import dataclass
 from typing import Optional
 
@@ -288,6 +289,12 @@ def test_undo(console, time_entry):
     assert console.time_entries == []
 
 
+@pytest.mark.parametrize("user_input, expected", [("", True), ("nothing", False)])
+def test_outlook_entry_pattern(user_input, expected, monkeypatch):
+    monkeypatch.setattr("titr_main.time_entry_pattern", lambda _: False)
+    assert titr.outlook_entry_pattern(user_input) == expected
+
+
 def test_main(monkeypatch, capsys):
     # setup
     monkeypatch.setattr("builtins.input", lambda _: "q")
@@ -306,6 +313,7 @@ def test_main(monkeypatch, capsys):
             return name in dir(self)
 
     args: MockArgs = MockArgs()
+    monkeypatch.setattr("titr_main.parse_args", lambda: args)
 
     # Ensure testdb arg is working
     args.testdb = True
@@ -324,9 +332,59 @@ def test_main(monkeypatch, capsys):
 
         monkeypatch.setattr("titr_main.import_from_outlook", lambda _: _raise_in_err())
         titr.main()
-        captured = capsys.readouterr()
-        assert titr.TITR_DB != "titr_test.db"
-        assert "test error" in captured.out
+    captured = capsys.readouterr()
+    assert "Using Test Database" in captured.out
+    assert "test error" in captured.out
+
+    # Ensure start and end args are working
+    def _fake_call(arg):
+        print(arg)
+
+    monkeypatch.setattr(
+        "titr_main._start_timed_activity", lambda *_: _fake_call("--start")
+    )
+    monkeypatch.setattr("titr_main._end_timed_activity", lambda *_: _fake_call("--end"))
+    args.outlook = False
+    args.start = ["test"]
+    args.end = None
+    with pytest.raises(SystemExit):
+        titr.main()
+    captured = capsys.readouterr()
+    assert "--start" in captured.out
+    args.end = ["test"]
+    args.start = None
+    with pytest.raises(SystemExit):
+        titr.main()
+    captured = capsys.readouterr()
+    assert "--end" in captured.out
+
+
+arg_combos = [
+    (["--start", "--testdb"], True),
+    (["--start", "--end"], False),
+    (["--testdb", "--end"], True),
+    (["--start", "--testdb", "--end"], False),
+    (["--testdb", "--outlook"], True),
+    (["--end", "--outlook"], False),
+    (["--start", "--outlook"], False),
+    (["--start", "--testdb", "--outlook"], False),
+    (["--start", "--end", "--outlook"], False),
+    (["--testdb", "--end", "--outlook"], False),
+    (["--testdb", "--end", "--outlook", "--start"], False),
+]
+
+
+#  @pytest.mark.xfail
+@pytest.mark.parametrize("sys_args, valid", arg_combos)
+def test_parse_args(monkeypatch, sys_args, valid):
+    monkeypatch.setattr("sys.argv", [""] + sys_args)
+    monkeypatch.setattr("titr_main.OUTLOOK_ENABLED", True)
+    if not valid:
+        with pytest.raises(SystemExit):
+            titr.parse_args()
+    else:
+        titr.parse_args()
+        assert 1
 
 
 valid_time_entries = [

@@ -58,9 +58,6 @@ def main() -> None:
         print(f"Using Test Database: {TITR_DB}")
     with ConsoleSession() as cs:
         # For starting a new timed entry
-        if args and args.start is not None and args.end is not None:
-            print("Error: Cannot simultaneously use --start and --end commands.")
-            exit(0)
         if args and args.start is not None:
             _start_timed_activity(cs, args.start)
         elif args and args.end is not None:
@@ -173,8 +170,8 @@ class ConsoleSession:
     time_entries: list = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        # Populate the task and category lists in the database from the titr.cfg
-        # File, which has already been loaded into the console session
+        """Populate the task and category lists in the database from the titr.cfg
+        File, which has already been loaded into the console session"""
         self.config: Config = load_config()
         self.db_connection: sqlite3.Connection = db_initialize()
         db_populate_task_category_lists(self)
@@ -183,11 +180,13 @@ class ConsoleSession:
         return self
 
     def __exit__(self, *args) -> None:
-        # When opened with a context manager, this will
-        # safely close the connection in case of crash or system exist.
+        """When opened with a context manager, this will
+        safely close the connection in case of crash or system exist."""
         self.db_connection.close()
 
     def add_entry(self, entry: TimeEntry, set_defaults: bool = True) -> TimeEntry:
+        """Add a TimeEntry to the console. Set the date, defaults, and the
+        string representations of category and task."""
         entry.date = self.date if not entry.date else entry.date
         if set_defaults:
             # Set console-config based default category & task,
@@ -342,6 +341,7 @@ def scale_time_entries(console: ConsoleSession, target_total: str) -> None:
         entry.duration = entry.duration + scale_amount * entry.duration / unscaled_total
 
 
+# TODO: Fix crash with multiple arguments (e.g. 'd - 1' command causes crash)
 @dc.ConsoleCommand(name="date", aliases=["d"])
 def set_date(console, datestr: str = None) -> None:
     """
@@ -1405,8 +1405,9 @@ def parse_args() -> argparse.Namespace:
     """Initialize the argument parser and available command line arguments.
     Return the argument namespace."""
     parser = argparse.ArgumentParser(description=WELCOME_MSG)
+    group = parser.add_mutually_exclusive_group()
     if OUTLOOK_ENABLED:
-        parser.add_argument(
+        group.add_argument(
             "--outlook", "-o", action="store_true", help="start titr in outlook mode"
         )
     parser.add_argument(
@@ -1414,13 +1415,13 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="use a test database file in the local folder",
     )
-    parser.add_argument(
+    group.add_argument(
         "--start",
         nargs="*",
         metavar="category task comment",
         help="Start timing your work.",
     )
-    parser.add_argument(
+    group.add_argument(
         "--end",
         nargs="*",
         metavar="category task comment",

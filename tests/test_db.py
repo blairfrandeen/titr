@@ -4,6 +4,7 @@ import pytest
 
 from dataclasses import dataclass
 from titr_main import (
+    _fetch_first,
     db_session_metadata,
     db_populate_task_category_lists,
     db_write_time_log,
@@ -29,6 +30,24 @@ def test_session_metadata(db_connection, monkeypatch):
         )
 
 
+@pytest.mark.parametrize(
+    "query_result, default, expected",
+    [
+        ((1,), None, 1),
+        (None, None, None),
+        (("four", 5, 6), None, "four"),
+        (None, 0, 0),
+        ((1,), 0, 1),
+    ],
+)
+def test_fetch_first(query_result, default, expected):
+    class _MockCursor:
+        def fetchone(self):
+            return query_result
+
+    assert _fetch_first(_MockCursor(), default=default) == expected
+
+
 def test_populate_tables(console):
     db_populate_task_category_lists(console)
     cursor = console.db_connection.cursor()
@@ -51,16 +70,13 @@ def test_populate_tables(console):
         assert name in task_cols[index]
 
 
-@pytest.mark.xfail #TODO: Fix failing test, likely due to not patching config file
 def test_write_time_log(console):
     db_populate_task_category_lists(console)
-    console.time_entries.append(
-        TimeEntry(console, duration=1, comment="test", task="t", category=3)
-    )
+    cs_entry = console.add_entry(TimeEntry(1.11))
 
     db_write_time_log(console, 0)
     find_entry = """--sql
-        SELECT l.duration, c.user_key, t.user_key, l.date, l.comment
+        SELECT l.duration, c.user_key, t.user_key, l.date, l.comment, l.start_ts, l.end_ts
         FROM time_log l
         JOIN tasks t ON t.id=l.task_id
         JOIN categories c ON c.id=l.category_id
@@ -69,7 +85,6 @@ def test_write_time_log(console):
     cursor = console.db_connection.cursor()
     cursor.execute(find_entry)
     db_entry = cursor.fetchone()
-    cs_entry = console.time_entries[-1]
     for index, data in enumerate(
         [
             cs_entry.duration,  # 1 hr
@@ -77,6 +92,8 @@ def test_write_time_log(console):
             cs_entry.task,  # user_key = 't' ("titr")
             cs_entry.date.strftime("%Y-%m-%d"),  # today
             cs_entry.comment,  # "test"
+            cs_entry.start_ts,  # none
+            cs_entry.end_ts,  # none
         ]
     ):
         assert db_entry[index] == data
