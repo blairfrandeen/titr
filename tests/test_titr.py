@@ -104,7 +104,7 @@ def test_timecard(console):
     console.date = datetime.date(2020, 8, 6)  # weekday = 3 (thurs)
 
     # test case with no entries
-    assert titr.show_weekly_timecard(console) is None
+    assert titr.show_weekly_timecard(console) == 0
 
     # Add time entries before, after, and within date range
     for date_tuple in [
@@ -293,6 +293,32 @@ def test_undo(console, time_entry):
 def test_outlook_entry_pattern(user_input, expected, monkeypatch):
     monkeypatch.setattr("titr_main.time_entry_pattern", lambda _: False)
     assert titr.outlook_entry_pattern(user_input) == expected
+
+
+@pytest.mark.parametrize(
+    "tasks, expected_sum",
+    [
+        ([("titr", 17.0, "t"), ("datum", 5.0, "d"), ("incidental", 3.5, "i")], 25.5),
+        ([], 0),
+        ((("titr", 17.0, "t"), ("datum", 5.0, "d"), ("incidental", 3.5, "i")), 25.5),
+    ],
+)
+def test_sum_grouped_tasks(tasks, expected_sum):
+    assert titr._sum_grouped_tasks(tasks) == expected_sum
+
+
+@pytest.mark.xfail(reason="work in progress")
+@pytest.mark.parametrize(
+    "inputs, expected",
+    [
+        (
+            [("titr", 10, "t"), ("datum", 10, "d")],
+            [("titr", 10, "t", 0.5), ("datum", 10, "t", 0.5)],
+        )
+    ],
+)
+def test_list_percentages(inputs, expected):
+    assert 0
 
 
 def test_main(monkeypatch, capsys):
