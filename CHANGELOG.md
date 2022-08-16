@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.7.3 (2022-08-15)
+### Fix
+* Fix issue with outlook function not skipping items when 0 time was entered. ([`e1a117c`](https://github.com/blairfrandeen/titr/commit/e1a117cf3711103de00c17add4712d9c14a47f0a))
+* Outlook mode no longer starts automatically ([`b8ac4ac`](https://github.com/blairfrandeen/titr/commit/b8ac4aca7b8dc551b68152893cf80c494fb691db))
+
 ## v0.7.2 (2022-08-14)
 ### Fix
 * Address crash when using --start and --end arguments. ([`a17ad27`](https://github.com/blairfrandeen/titr/commit/a17ad27ae51face4e3f7a0797a80578935f02df0))
