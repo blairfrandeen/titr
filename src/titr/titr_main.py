@@ -246,10 +246,11 @@ def add_entry(console, user_input: str) -> None:
     """Add a new entry to the time log."""
     new_entry = _parse_time_entry(console, user_input)
     if console.outlook_item:
-        if not new_entry:
-            new_entry = TimeEntry(0)
+        if not new_entry:  # if no user input, create a blank entry
+            new_entry = TimeEntry(duration=None)
         # TODO: Consider cleaner refactor of below set of conditionals
-        if new_entry.duration == 0:
+        # if no user input, fill from outlook
+        if new_entry.duration is None:
             new_entry.duration = console.outlook_item[0]
         if new_entry.category is None:
             new_entry.category = console.outlook_item[1]
@@ -568,6 +569,7 @@ def import_from_outlook(console: ConsoleSession) -> None:
             # TODO: Improve formatting
             cat_str = console.config.category_list[category]
             event_str = f"{comment}\n{cat_str} - {round(duration,2)} hr > "
+            # TODO: Consider refactoring this to be a TimeEntry object
             console.outlook_item = (duration, category, comment)
             command = dc.get_input(
                 session_args=console,
