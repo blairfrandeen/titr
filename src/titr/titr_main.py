@@ -63,7 +63,7 @@ def main() -> None:
         elif args and args.end is not None:
             _end_timed_activity(cs, args.end)
 
-        if args and "outlook" in args:  # args.outlook:
+        if args.outlook:
             try:
                 import_from_outlook(cs)
             except dc.InputError as err:
@@ -133,19 +133,17 @@ class TimeEntry:
             if self.comment
             else ""
         )
-        self_str = (
-            "{date:{w0}}{duration:<{w1}.2f}{task:{w2}}{cat:{w3}}{comment:{w4}}".format(
-                date=self.date.isoformat(),
-                duration=self.duration,
-                task=textwrap.shorten(self.tsk_str, w2 - 1, break_on_hyphens=False),
-                cat=textwrap.shorten(self.cat_str, w3 - 1, break_on_hyphens=False),
-                comment=comment_str_first,
-                w0=w0,
-                w1=w1,
-                w2=w2,
-                w3=w3,
-                w4=w4,
-            )
+        self_str = "{date:{w0}}{duration:<{w1}.2f}{task:{w2}}{cat:{w3}}{comment:{w4}}".format(
+            date=self.date.isoformat(),
+            duration=self.duration,
+            task=textwrap.shorten(self.tsk_str, w2 - 1, break_on_hyphens=False),
+            cat=textwrap.shorten(self.cat_str, w3 - 1, break_on_hyphens=False),
+            comment=comment_str_first,
+            w0=w0,
+            w1=w1,
+            w2=w2,
+            w3=w3,
+            w4=w4,
         )
         comment_str_others: list[str] = (
             textwrap.wrap(
@@ -192,15 +190,11 @@ class ConsoleSession:
             # Set console-config based default category & task,
             # if they have not already been set
             entry.category = (
-                self.config.default_category
-                if entry.category is None
-                else entry.category
+                self.config.default_category if entry.category is None else entry.category
             )
             entry.task = self.config.default_task if entry.task is None else entry.task
 
-        entry.cat_str = (
-            self.config.category_list[entry.category] if entry.category else ""
-        )
+        entry.cat_str = self.config.category_list[entry.category] if entry.category else ""
         entry.tsk_str = self.config.task_list[entry.task.lower()] if entry.task else ""
 
         self.time_entries.append(entry)
@@ -370,9 +364,7 @@ def set_date(console, datestr: str = None) -> None:
     try:
         new_date = datetime.date.fromisoformat(datestr) if not new_date else new_date
     except ValueError as err:
-        raise dc.InputError(
-            f"Error: Invalid date: {datestr}. See 'help date' for more info."
-        )
+        raise dc.InputError(f"Error: Invalid date: {datestr}. See 'help date' for more info.")
     else:
         if new_date > datetime.date.today():
             raise dc.InputError("Date cannot be in the future")
@@ -388,9 +380,7 @@ def undo_last(console) -> None:
 
 
 @dc.ConsoleCommand(name="write", aliases=["c", "commit"])
-def write_db(
-    console: ConsoleSession, input_type: str = "user"
-) -> None:  # pragma: no cover
+def write_db(console: ConsoleSession, input_type: str = "user") -> None:  # pragma: no cover
     """
     Permanently commit time entries to the database.
 
@@ -426,9 +416,7 @@ def show_weekly_timecard(console: ConsoleSession) -> float:
     to any day within the week of interest using the date command.
 
     Weeks start on Monday."""
-    week_start: datetime.date = console.date - datetime.timedelta(
-        days=console.date.weekday()
-    )
+    week_start: datetime.date = console.date - datetime.timedelta(days=console.date.weekday())
     week_end: datetime.date = week_start + datetime.timedelta(days=6)
     cursor = console.db_connection.cursor()
 
@@ -469,9 +457,7 @@ def show_weekly_timecard(console: ConsoleSession) -> float:
             if task[2] not in console.config.incidental_tasks:
                 # TODO: Error handling in case of all incidental time
                 try:
-                    task_percentage: float = task[1] / (
-                        week_total_hours - total_incidental
-                    )
+                    task_percentage: float = task[1] / (week_total_hours - total_incidental)
                 except ZeroDivisionError:
                     task_percentage = float("nan")
                 task_adj_hrs: float = task[1] + total_incidental * task_percentage
@@ -492,9 +478,7 @@ def show_weekly_timecard(console: ConsoleSession) -> float:
         print(  # TOTAL ROW
             Style.BRIGHT
             + Fore.GREEN
-            + "{:{}}{:<{}.2f}".format(
-                "", col_widths[0], week_total_hours, col_widths[1]
-            )
+            + "{:{}}{:<{}.2f}".format("", col_widths[0], week_total_hours, col_widths[1])
             + Style.RESET_ALL
         )
     else:
@@ -524,9 +508,7 @@ def deep_work(console: ConsoleSession) -> None:  # pragma: no cover
         )
         + Style.NORMAL
     )
-    goal_color: str = (
-        Fore.GREEN if dw_last_365 >= console.config.deep_work_goal else Fore.RED
-    )
+    goal_color: str = Fore.GREEN if dw_last_365 >= console.config.deep_work_goal else Fore.RED
     print(
         Style.BRIGHT
         + "{:{}}".format("----------", w1)
@@ -567,10 +549,7 @@ def import_from_outlook(console: ConsoleSession) -> None:
         # console._set_outlook_mode()
         for item in outlook_items:
             if (
-                (
-                    item.AllDayEvent is True
-                    and console.config.skip_all_day_events is True
-                )
+                (item.AllDayEvent is True and console.config.skip_all_day_events is True)
                 or item.Subject in console.config.skip_event_names
                 or item.BusyStatus in console.config.skip_event_status
             ):
@@ -622,9 +601,7 @@ def import_from_csv(
     """
 
     cursor = console.db_connection.cursor()
-    session_id: int = db_session_metadata(
-        console.db_connection, input_type="import_from_csv"
-    )
+    session_id: int = db_session_metadata(console.db_connection, input_type="import_from_csv")
     write_entry: str = """--sql
         INSERT INTO time_log (date, duration, category_id, task_id, comment, session_id)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -646,22 +623,16 @@ def import_from_csv(
                 # convert the date
                 try:
                     month, day, year = row[0].split("/")
-                    entry_date: datetime.date = datetime.date(
-                        int(year), int(month), int(day)
-                    )
+                    entry_date: datetime.date = datetime.date(int(year), int(month), int(day))
                 except ValueError:
-                    print(
-                        f"Warning: {row_num=} has invalid date {row[0]}. Skipping entry."
-                    )
+                    print(f"Warning: {row_num=} has invalid date {row[0]}. Skipping entry.")
                     continue
 
                 # convert the entry duration
                 try:
                     entry_duration = float(row[1])
                 except ValueError:
-                    print(
-                        f"Warning: {row_num=} has invalid duration {row[1]}. Skipping entry."
-                    )
+                    print(f"Warning: {row_num=} has invalid duration {row[1]}. Skipping entry.")
                     continue
 
                 # Get task & category ids
@@ -797,9 +768,7 @@ def disp_dict(dictionary: dict, dict_name: str):  # pragma: no cover
         print(f"{Fore.BLUE}{key}{Fore.RESET}: {value}")
 
 
-def get_outlook_items(
-    search_date: datetime.date, calendar_name: str, outlook_account: str
-):
+def get_outlook_items(search_date: datetime.date, calendar_name: str, outlook_account: str):
     """Read calendar items from Outlook."""
 
     # connect to outlook
@@ -908,17 +877,13 @@ def load_config(config_file=CONFIG_FILE) -> Config:
     config.outlook_account = parser["outlook_options"]["email"]
     config.calendar_name = parser["outlook_options"]["calendar_name"]
     config.skip_event_names = [
-        event.strip()
-        for event in parser["outlook_options"]["skip_event_names"].split(",")
+        event.strip() for event in parser["outlook_options"]["skip_event_names"].split(",")
     ]
     # TODO: Error handling
     config.skip_event_status = [
-        int(status)
-        for status in parser["outlook_options"]["skip_event_status"].split(",")
+        int(status) for status in parser["outlook_options"]["skip_event_status"].split(",")
     ]
-    config.skip_all_day_events = parser.getboolean(
-        "outlook_options", "skip_all_day_events"
-    )
+    config.skip_all_day_events = parser.getboolean("outlook_options", "skip_all_day_events")
 
     return config
 
@@ -974,8 +939,7 @@ def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[TimeE
                 new_entry.comment = " ".join(comment).strip()
         # Comment only
         case (str(cat_key), str(task), *comment) if (
-            not is_float(cat_key)
-            and task.lower() not in console.config.task_list.keys()
+            not is_float(cat_key) and task.lower() not in console.config.task_list.keys()
         ):
             new_comment: str = (cat_key + " " + task + " " + " ".join(comment)).strip()
             if new_comment:
@@ -1064,9 +1028,7 @@ def _end_timed_activity(cs: ConsoleSession, user_args: argparse.Namespace) -> No
     final_entry.end_ts = datetime.datetime.today()
     if final_entry.start_ts is None or final_entry.end_ts is None:
         raise TypeError("Found NoneType in final_entry start and/or end timestamps.")
-    final_entry.duration = (
-        final_entry.end_ts - final_entry.start_ts
-    ).total_seconds() / 3600
+    final_entry.duration = (final_entry.end_ts - final_entry.start_ts).total_seconds() / 3600
     final_entry.comment = (
         comment + " " + final_entry.comment if final_entry.comment or comment else None
     )
@@ -1090,9 +1052,7 @@ def _end_timed_activity(cs: ConsoleSession, user_args: argparse.Namespace) -> No
     print(cs.time_entries[-1])
 
     # write the entry to the database
-    confirm = input(
-        "Enter 'y' to confirm, 'delete' to remove task, any other key to exit: "
-    )
+    confirm = input("Enter 'y' to confirm, 'delete' to remove task, any other key to exit: ")
     if confirm.lower() == "y":
         write_db(cs, input_type="command")
     elif confirm.lower() == "delete":
@@ -1322,9 +1282,7 @@ def db_session_metadata(
     return session_id
 
 
-def _fetch_first(
-    cursor: sqlite3.Cursor, default: Optional[Any] = None
-) -> Optional[Any]:
+def _fetch_first(cursor: sqlite3.Cursor, default: Optional[Any] = None) -> Optional[Any]:
     """Given the result of an sql query from a cursor.fetchone()
     call, return the first element if it exists.
 
@@ -1390,6 +1348,8 @@ def parse_args() -> argparse.Namespace:
         group.add_argument(
             "--outlook", "-o", action="store_true", help="start titr in outlook mode"
         )
+    else:
+        parser.set_defaults(outlook=False)
     parser.add_argument(
         "--testdb",
         action="store_true",
