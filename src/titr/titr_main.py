@@ -94,7 +94,7 @@ class Config:
 class TimeEntry:
     """Class to capture data for time entries"""
 
-    duration: float
+    duration: Optional[float] = None
     category: Optional[int] = None
     task: Optional[str] = None
     date: Optional[datetime.date] = None
