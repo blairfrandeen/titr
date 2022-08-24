@@ -4,6 +4,7 @@ from argparse import ArgumentError
 from dataclasses import dataclass
 from typing import Optional
 
+import pandas as pd
 import pyperclip
 import pytest
 
@@ -319,6 +320,22 @@ def test_sum_grouped_tasks(tasks, expected_sum):
 )
 def test_list_percentages(inputs, expected):
     assert 0
+
+
+def test_work_modes(console):
+    # Check for no-data case
+    assert titr.work_modes(console, test_flag=True) is None
+
+    e1 = titr.TimeEntry(1, category=2)
+    console.add_entry(e1)
+    e2 = titr.TimeEntry(5, category=3)
+    console.add_entry(e2)
+    titr.write_db(console)
+    titr.preview_output(console)
+
+    modes = titr.work_modes(console, test_flag=True)
+    assert modes["duration"].sum() == 6
+    assert modes["percent"].sum() == 1
 
 
 def test_main(monkeypatch, capsys):
