@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Tuple, Dict, List, Any, Union, Callable
 
 from colorama import Fore, Style
+import pandas as pd
 
 try:  # pragma: no cover
     # Attempt to import modules to use with Outlook
@@ -414,6 +415,66 @@ def write_db(
     # Clear all time entries so they aren't entered a second time
     clear_entries(console)
     print(f"Commited entries to {TITR_DB}.")
+
+
+@dc.ConsoleCommand(name="modes", aliases=["m"])
+def work_modes(
+    console: ConsoleSession,
+    threshold: float = 0.005,
+    test_flag=False,
+) -> Optional[pd.DataFrame]:
+    """
+    Show work mode summary for this week.
+
+    To show summary for a different week, set the date
+    to any day within the week of interest using the date command.
+
+    Weeks start on Monday."""
+    conn = console.db_connection
+    category_query = """--sql
+        SELECT l.date, l.duration, c.name FROM time_log l
+        JOIN categories c ON c.id = l.category_id
+        ORDER BY date
+    """
+    date_start: pd.datetime64 = pd.to_datetime(
+        console.date - datetime.timedelta(days=console.date.weekday())
+    )
+    date_end: pd.datetime64 = pd.to_datetime(date_start + datetime.timedelta(days=6))
+    category_cols = "date duration category".split()
+
+    data = pd.read_sql(category_query, conn, parse_dates=["date"])
+    if data.empty:
+        print(f"No Data Available. Enter some data, or try different dates")
+        return None
+
+    # name the columns, trim to the proper date range
+    data.columns = category_cols
+    data[(data["date"] >= date_start) & (data["date"] < date_end)]
+    data = data.set_index("date").sort_values("date").loc[date_start:date_end]
+
+    summary = data.groupby("category").sum()
+
+    # get the total hours worked
+    total_hours = summary["duration"].sum()
+
+    # add a column for percentage
+    summary["percent"] = summary["duration"] / total_hours
+
+    # Group modes under a certain threshold to an "other" category
+    other_duration = summary[summary["percent"] < threshold]["duration"].sum()
+    summary.loc["Other", :] = {
+        "duration": summary[summary["percent"] < threshold].loc[:, "duration"].sum(),
+        "percent": summary[summary["percent"] < threshold].loc[:, "percent"].sum(),
+    }
+    summary = summary[summary["percent"] >= threshold]
+
+    if not test_flag:  # pragma: no cover
+        # Make everything pretty
+        summary["percent"] = summary["percent"].map("{:.2%}".format)
+        summary["duration"] = summary["duration"].map("{:.2f}".format)
+
+    print(summary)
+    return summary
 
 
 @dc.ConsoleCommand(name="timecard", aliases=["tc"])
