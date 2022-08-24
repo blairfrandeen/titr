@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.8.0 (2022-08-23)
+### Feature
+* View work modes for the week ([`0db451b`](https://github.com/blairfrandeen/titr/commit/0db451b40895f2f8c85d07ef6c854b1a2b68759f))
+
 ## v0.7.3 (2022-08-15)
 ### Fix
 * Fix issue with outlook function not skipping items when 0 time was entered. ([`e1a117c`](https://github.com/blairfrandeen/titr/commit/e1a117cf3711103de00c17add4712d9c14a47f0a))
