@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.9.0 (2022-08-31)
+### Feature
+* Show daily log of tasks ([`c7b0381`](https://github.com/blairfrandeen/titr/commit/c7b0381a2934d2f3bea6bb424517de4ad926178b))
+
 ## v0.8.0 (2022-08-23)
 ### Feature
 * View work modes for the week ([`0db451b`](https://github.com/blairfrandeen/titr/commit/0db451b40895f2f8c85d07ef6c854b1a2b68759f))
