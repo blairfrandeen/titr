@@ -322,6 +322,19 @@ def test_list_percentages(inputs, expected):
     assert 0
 
 
+def test_daily_log(console):
+    assert titr.show_today_log(console, test_flag=True) is None
+
+    e1 = titr.TimeEntry(1, category=2)
+    console.add_entry(e1)
+    e2 = titr.TimeEntry(5, category=3)
+    console.add_entry(e2)
+    titr.write_db(console)
+
+    log = titr.show_today_log(console, test_flag=True)
+    assert log["Duration"].sum() == 6
+
+
 def test_work_modes(console):
     # Check for no-data case
     assert titr.work_modes(console, test_flag=True) is None

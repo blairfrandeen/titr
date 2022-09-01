@@ -568,6 +568,39 @@ def show_weekly_timecard(console: ConsoleSession) -> float:
     return week_total_hours
 
 
+@dc.ConsoleCommand(name="today")
+def show_today_log(
+    console: ConsoleSession, test_flag: bool = False
+) -> Optional[pd.DataFrame]:
+    """
+    Show tasks completed today.
+    """
+    conn = console.db_connection
+    log_query = """--sql
+        SELECT l.date, l.duration, c.name, t.name, l.comment FROM time_log l
+        JOIN categories c ON c.id = l.category_id
+        JOIN tasks t on t.id = l.task_id
+        ORDER BY l.id
+    """
+    data = pd.read_sql(
+        log_query,
+        conn,
+        parse_dates=["date"],
+    )
+    data.columns = "Date Duration Category Task Comment".split()
+    data = data[data["Date"] == pd.to_datetime(console.date)]
+    total_duration = data["Duration"].sum()
+    if total_duration == 0:
+        print(f"No entries found for {console.date.isoformat()}.")
+        return None
+    if not test_flag:  # pragma: no cover
+        data["Duration"] = data["Duration"].map("{:.2f}".format)
+    print(f"Tasks for {console.date.isoformat()}:")
+    print(data[["Duration", "Category", "Task", "Comment"]].to_string(index=False))
+    print(f"Total Duration: {round(total_duration,2)}")
+    return data
+
+
 @dc.ConsoleCommand(name="deepwork", aliases=["dw"])
 def deep_work(console: ConsoleSession) -> None:  # pragma: no cover
     """
