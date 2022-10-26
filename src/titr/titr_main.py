@@ -22,6 +22,7 @@ from typing import Optional, Tuple, Dict, List, Any, Union, Callable
 
 from colorama import Fore, Style
 import pandas as pd
+import click
 
 try:  # pragma: no cover
     # Attempt to import modules to use with Outlook
@@ -295,6 +296,21 @@ def copy_output(console) -> None:
         print("TSV Output copied to clipboard.")
     else:
         print("No time has been entered.")
+
+
+@dc.ConsoleCommand(name="config")
+def edit_config(console) -> None:
+    """Edit the titr.cfg configuration file using vim."""
+    try:
+        click.edit(filename=CONFIG_FILE, editor="vim")
+    except click.exceptions.ClickException:  # try without specifying vim
+        try:
+            click.edit(filename=CONFIG_FILE)
+        except Exception as exc:
+            print("Failed to edit config: ", exc)
+
+    # reload the configuration
+    console.config: Config = load_config()
 
 
 @dc.ConsoleCommand(name="list", aliases=["ls"])
