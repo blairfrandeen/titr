@@ -63,10 +63,12 @@ def main() -> None:
     args: argparse.Namespace = parse_args()
     print(WELCOME_MSG)
     if args and args.testdb:
-        global TITR_DB  # TODO: Clean this up, get away from relying on global
-        TITR_DB = "titr_test.db"
-        print(f"Using Test Database: {TITR_DB}")
-    with ConsoleSession() as cs:
+        database_file = "titr_test.db"
+        print(f"Using Test Database: {database_file}")
+    else:
+        database_file = titr.TITR_DB
+
+    with ConsoleSession(database_file=database_file) as cs:
         # For starting a new timed entry
         if args and args.start is not None and args.end is not None:
             print("Error: Cannot simultaneously use --start and --end commands.")
@@ -160,6 +162,7 @@ class TimeEntry:
 
 @dataclass
 class ConsoleSession:
+    database_file: str = TITR_DB
     date: datetime.date = datetime.date.today()
     outlook_item: Optional[tuple] = field(default_factory=tuple)
     time_entries: list = field(default_factory=list)
@@ -168,7 +171,9 @@ class ConsoleSession:
         """Populate the task and category lists in the database from the titr.cfg
         File, which has already been loaded into the console session"""
         self.config: Config = load_config()
-        self.db_connection: sqlite3.Connection = titr.database.db_initialize()
+        self.db_connection: sqlite3.Connection = titr.database.db_initialize(
+            database=self.database_file
+        )
         db_populate_task_category_lists(self)
 
     def __enter__(self):

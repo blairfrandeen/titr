@@ -30,7 +30,7 @@ def db_connection(monkeypatch):
 
 @pytest.fixture
 def console(monkeypatch, db_connection):
-    monkeypatch.setattr("titr.database.db_initialize", lambda: db_connection)
+    monkeypatch.setattr("titr.database.db_initialize", lambda **_: db_connection)
     cs = ConsoleSession()
     yield cs
 
