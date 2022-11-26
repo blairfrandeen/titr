@@ -52,27 +52,6 @@ def time_entry(
     yield te
 
 
-@pytest.fixture
-def titr_default_config(monkeypatch, tmp_path):
-    test_config_path = tmp_path / "test.ini"
-    monkeypatch.setattr(titr, "CONFIG_FILE", test_config_path)
-    monkeypatch.setattr("builtins.input", lambda _: "yourname@example.com")
-    titr.create_default_config()
-    test_config = configparser.ConfigParser()
-
-    # Add some illegal entries
-    test_config.read(test_config_path)
-    test_config.set("categories", "bad_cat_key", "meow!")
-    test_config.set("tasks", "long_key", "not allowed!")
-    test_config.set("tasks", "8", "digits not allowed!")
-    test_config.set("general_options", "default_category", "0")
-    test_config.set("general_options", "default_task", "too long")
-    test_config.set("outlook_options", "skip_event_names", "Lunch, Meeting")
-    with open(test_config_path, "w") as cfg_fh:
-        test_config.write(cfg_fh)
-    yield test_config_path
-
-
 def test_query_dw(console, monkeypatch, time_entry):
     """Cases to test:
     - No deep work at all
@@ -83,17 +62,13 @@ def test_query_dw(console, monkeypatch, time_entry):
     assert dw_total == 0
     assert dw_last_yr == 0
 
-    console.add_entry(
-        titr.TimeEntry(category=2, date=datetime.date(1984, 6, 17), duration=11.53)
-    )
+    console.add_entry(titr.TimeEntry(category=2, date=datetime.date(1984, 6, 17), duration=11.53))
     titr.write_db(console)
     dw_total, dw_last_yr = titr._query_deep_work(console)
     assert dw_total == 11.53
     assert dw_last_yr == 0
 
-    console.add_entry(
-        titr.TimeEntry(category=2, date=datetime.date.today(), duration=8)
-    )
+    console.add_entry(titr.TimeEntry(category=2, date=datetime.date.today(), duration=8))
     titr.write_db(console)
     dw_total, dw_last_yr = titr._query_deep_work(console)
     assert dw_total == 19.53
@@ -127,47 +102,8 @@ def test_timecard(console):
     assert titr.show_weekly_timecard(console) == 4
 
 
-def test_default_config(titr_default_config):
-    test_config = configparser.ConfigParser()
-    test_config.read(titr_default_config)
-    for section in [
-        "outlook_options",
-        "general_options",
-        "categories",
-        "tasks",
-        "incidental_tasks",
-    ]:
-        assert section in test_config.sections()
-
-    # expect failure if config already exists
-    with pytest.raises(FileExistsError):
-        titr.create_default_config()
-
-
-def test_load_config(titr_default_config, console, monkeypatch):
-    def _mock_create_default():
-        return titr_default_config
-
-    #  monkeypatch.setattr(console, "load_config", lambda: titr_default_config)
-    monkeypatch.setattr(titr, "create_default_config", lambda: titr_default_config)
-    console.config = titr.load_config(config_file="none")
-    assert console.config.category_list[2] == "Deep Work"
-    assert console.config.category_list[3] == "Email"
-    assert console.config.task_list["i"] == "Incidental"
-    assert console.config.task_list["d"] == "Default Task"
-    assert console.config.default_task == "i"
-    assert console.config.default_category == 2
-    assert console.config.skip_all_day_events is True
-    assert console.config.skip_event_status == [0, 3]
-    assert console.config.incidental_tasks == ["i"]
-    assert console.config.skip_event_names == ["Lunch", "Meeting"]
-    configparser.ConfigParser()
-
-
 class MockTimeEntry:
-    def __init__(
-        self, duration, task="N", category=5, comment="", date=datetime.date.today()
-    ):
+    def __init__(self, duration, task="N", category=5, comment="", date=datetime.date.today()):
         self.duration = duration
         self.category = category
         self.task = task
@@ -177,30 +113,6 @@ class MockTimeEntry:
     def __str__(self):
         self_str: str = f"{self.duration}\t{self.category}\t{self.task}\t{self.comment}"
         return self_str
-
-
-@pytest.mark.parametrize(
-    "item, expected",
-    [
-        ("yankee", False),
-        ("dOODlE", False),
-        ("KLJF#*(@#!!", False),
-        (".34", True),
-        (".23191", True),
-        ("0", True),
-        ("-0", True),
-        ("99", True),
-        ("4e5", True),
-        ("inf", True),
-        (5, True),
-        (4.1, True),
-        (-4.23e-5, True),
-        (False, True),
-        ("NaN", True),
-    ],
-)
-def test_is_float(item, expected):
-    assert titr.is_float(item) is expected
 
 
 def test_float_bad_inputs():
@@ -266,7 +178,9 @@ def test_copy(console, time_entry):
     assert len(clipboard.split("\n")[0].split("\t")) == 5
 
 
-@pytest.mark.xfail
+@pytest.mark.xfail(
+    reason="Incomplete test? Seems to only be testing dataclass. Should likely be testing add_entry"
+)
 def test_time_entry(console):
     te = titr.TimeEntry(2)
     assert te.category == console.config.default_category
@@ -396,9 +310,7 @@ def test_main(monkeypatch, capsys):
     def _fake_call(arg):
         print(arg)
 
-    monkeypatch.setattr(
-        "titr_main._start_timed_activity", lambda *_: _fake_call("--start")
-    )
+    monkeypatch.setattr("titr_main._start_timed_activity", lambda *_: _fake_call("--start"))
     monkeypatch.setattr("titr_main._end_timed_activity", lambda *_: _fake_call("--end"))
     args.outlook = False
     args.start = ["test"]

@@ -10,7 +10,8 @@ from titr_main import (
     db_write_time_log,
     TimeEntry,
 )
-from test_titr import console, titr_default_config, db_connection
+from test_titr import console, db_connection
+from test_config import titr_default_config
 
 
 @dataclass
@@ -25,8 +26,7 @@ def test_session_metadata(db_connection, monkeypatch):
     for session_id, platform in enumerate(platforms):
         monkeypatch.setattr("sys.platform", platform)
         assert (
-            db_session_metadata(db_connection, input_type="test", test_flag=True)
-            == session_id + 1
+            db_session_metadata(db_connection, input_type="test", test_flag=True) == session_id + 1
         )
 
 

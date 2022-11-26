@@ -4,7 +4,8 @@ import sys
 
 import pytest
 import titr_main as titr
-from test_titr import console, titr_default_config, db_connection
+from test_titr import console, db_connection
+from test_config import titr_default_config
 
 if not sys.platform.startswith("win32"):
     pytest.skip(reason="windows only tests", allow_module_level=True)
@@ -125,9 +126,7 @@ def test_get_outlook_items(make_appointment, monkeypatch, test_appt_parameters):
     #    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
     #    monkeypatch.setattr("titr.CALENDAR_NAME", TEST_CALENDAR_NAME)
 
-    outlook_items = titr.get_outlook_items(
-        TEST_DAY, TEST_CALENDAR_NAME, OUTLOOK_ACCOUNT
-    )
+    outlook_items = titr.get_outlook_items(TEST_DAY, TEST_CALENDAR_NAME, OUTLOOK_ACCOUNT)
 
     assert sum(1 for _ in outlook_items) == len(test_appt_parameters)
     for index, appt in enumerate(outlook_items):
