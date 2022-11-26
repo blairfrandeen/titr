@@ -37,7 +37,6 @@ sys.path.append("src")
 
 import titr
 import titr.datum_console as dc
-from titr.helper import disp_dict, is_float
 from titr.config import Config, load_config
 from titr.database import (
     db_populate_task_category_lists,
@@ -46,9 +45,8 @@ from titr.database import (
     fetch_first,
     db_write_time_log,
 )
+from titr.helper import disp_dict, is_float
 
-# TODO: Move these constants to __init__?
-COLUMN_WIDTHS = [12, 8, 22, 22, 24]
 # fmt: off
 WELCOME_MSG = (
 f"""Welcome to titr. Version {titr.__version__}. DB v{titr.__db_user_version__}.
@@ -118,13 +116,13 @@ class TimeEntry:
         return tsv_str
 
     def __str__(self):  # pragma: no cover
-        w0, w1, w2, w3, w4 = COLUMN_WIDTHS
+        w0, w1, w2, w3, w4 = titr.TIME_ENTRY_COL_WIDTHS
         comment_str_first: list[str] = (
             textwrap.wrap(
                 self.comment,
                 width=w4,
                 initial_indent="",
-                subsequent_indent=sum(COLUMN_WIDTHS[0:4]) * " ",
+                subsequent_indent=sum(titr.TIME_ENTRY_COL_WIDTHS[0:4]) * " ",
             )[0]
             if self.comment
             else ""
@@ -144,9 +142,9 @@ class TimeEntry:
         comment_str_others: list[str] = (
             textwrap.wrap(
                 self.comment[len(comment_str_first) :].strip(),
-                width=sum(COLUMN_WIDTHS),
-                initial_indent=sum(COLUMN_WIDTHS[0:4]) * " ",
-                subsequent_indent=sum(COLUMN_WIDTHS[0:4]) * " ",
+                width=sum(titr.TIME_ENTRY_COL_WIDTHS),
+                initial_indent=sum(titr.TIME_ENTRY_COL_WIDTHS[0:4]) * " ",
+                subsequent_indent=sum(titr.TIME_ENTRY_COL_WIDTHS[0:4]) * " ",
                 max_lines=2,
             )
             if self.comment
@@ -318,15 +316,15 @@ def preview_output(console: ConsoleSession) -> None:
     print(Style.BRIGHT, end="")
     for index, heading in enumerate(["DATE", "HOURS", "TASK", "CATEGORY", "COMMENT"]):
         print(
-            "{heading:{wd}}".format(heading=heading, wd=COLUMN_WIDTHS[index]),
+            "{heading:{wd}}".format(heading=heading, wd=titr.TIME_ENTRY_COL_WIDTHS[index]),
             end="",
         )
     print(Style.NORMAL)
     for entry in console.time_entries:
         print(entry)
     print(Style.BRIGHT + Fore.GREEN, end="")
-    print("{s:{wd}}".format(s="TOTAL", wd=COLUMN_WIDTHS[0]), end="")
-    print("{d:<{wd}.2f}".format(d=console.total_duration, wd=COLUMN_WIDTHS[1]))
+    print("{s:{wd}}".format(s="TOTAL", wd=titr.TIME_ENTRY_COL_WIDTHS[0]), end="")
+    print("{d:<{wd}.2f}".format(d=console.total_duration, wd=titr.TIME_ENTRY_COL_WIDTHS[1]))
     print(Style.NORMAL + Fore.RESET, end="")
 
 
