@@ -3,15 +3,15 @@ import pytest
 
 
 from dataclasses import dataclass
-from titr_main import (
+from titr.titr_main import (
     _fetch_first,
     db_session_metadata,
     db_populate_task_category_lists,
     db_write_time_log,
     TimeEntry,
 )
-from test_titr import console, db_connection
 from test_config import titr_default_config
+from test_titr import console, db_connection
 
 
 @dataclass

@@ -26,3 +26,10 @@ from titr.helper import is_float
 )
 def test_is_float(item, expected):
     assert is_float(item) is expected
+
+
+def test_float_bad_inputs():
+    definitely_not_floats = [[1, 2, 3], {1: "hi"}, None]
+    for item in definitely_not_floats:
+        with pytest.raises(TypeError):
+            is_float(item)

@@ -3,7 +3,9 @@ import time
 import sys
 
 import pytest
-import titr_main as titr
+
+from titr.titr_main import get_outlook_items, import_from_outlook
+from titr.datum_console import InputError
 from test_titr import console, db_connection
 from test_config import titr_default_config
 
@@ -126,7 +128,7 @@ def test_get_outlook_items(make_appointment, monkeypatch, test_appt_parameters):
     #    monkeypatch.setattr("titr.OUTLOOK_ACCOUNT", OUTLOOK_ACCOUNT)
     #    monkeypatch.setattr("titr.CALENDAR_NAME", TEST_CALENDAR_NAME)
 
-    outlook_items = titr.get_outlook_items(TEST_DAY, TEST_CALENDAR_NAME, OUTLOOK_ACCOUNT)
+    outlook_items = get_outlook_items(TEST_DAY, TEST_CALENDAR_NAME, OUTLOOK_ACCOUNT)
 
     assert sum(1 for _ in outlook_items) == len(test_appt_parameters)
     for index, appt in enumerate(outlook_items):
@@ -164,18 +166,18 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
     def _mock_set_mode():
         print("Mode changed.")
 
-    monkeypatch.setattr(titr, "get_outlook_items", _mock_get_outlook_items)
+    monkeypatch.setattr("titr.titr_main.get_outlook_items", _mock_get_outlook_items)
     console.config.skip_event_names = ["Filtered Event"]
 
     def _mock_user_input(**kwargs):
         return 0
 
-    with pytest.raises(titr.dc.InputError):
-        titr.import_from_outlook(console)
+    with pytest.raises(InputError):
+        import_from_outlook(console)
 
-    monkeypatch.setattr(titr, "get_outlook_items", lambda *_: mock_appointments)
+    monkeypatch.setattr("titr.titr_main.get_outlook_items", lambda *_: mock_appointments)
     monkeypatch.setattr("builtins.input", lambda _: "")
-    titr.import_from_outlook(console)
+    import_from_outlook(console)
     captured = capsys.readouterr()
     for entry in console.time_entries:
         for subject in [
