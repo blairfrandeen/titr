@@ -9,16 +9,14 @@ https://github.com/blairfrandeen/titr
 
 import argparse
 import csv
-import configparser
 import datetime
 import math
-import os
 import sqlite3
 import sys
 import textwrap
 
 from dataclasses import dataclass, field
-from typing import Optional, Tuple, Dict, List, Any, Union, Callable
+from typing import Optional, List
 
 from colorama import Fore, Style
 import pandas as pd
@@ -37,7 +35,6 @@ else:  # pragma: no cover
 # allow for this file to be run from source tree root
 sys.path.append("src")
 
-from titr import __version__, __db_user_version__, CONFIG_FILE, TITR_DB
 import titr
 import titr.datum_console as dc
 from titr.helper import disp_dict, is_float
@@ -46,7 +43,7 @@ from titr.database import (
     db_populate_task_category_lists,
     db_session_metadata,
     db_populate_user_table,
-    _fetch_first,
+    fetch_first,
     db_write_time_log,
 )
 
@@ -54,7 +51,7 @@ from titr.database import (
 COLUMN_WIDTHS = [12, 8, 22, 22, 24]
 # fmt: off
 WELCOME_MSG = (
-f"""Welcome to titr. Version {__version__}. DB v{__db_user_version__}.
+f"""Welcome to titr. Version {titr.__version__}. DB v{titr.__db_user_version__}.
 https://github.com/blairfrandeen/titr""")
 # fmt: on
 
@@ -162,7 +159,7 @@ class TimeEntry:
 
 @dataclass
 class ConsoleSession:
-    database_file: str = TITR_DB
+    database_file: str = titr.TITR_DB
     date: datetime.date = datetime.date.today()
     outlook_item: Optional[tuple] = field(default_factory=tuple)
     time_entries: list = field(default_factory=list)
@@ -293,10 +290,10 @@ def copy_output(console) -> None:
 def edit_config(console) -> None:
     """Edit the titr.cfg configuration file using vim."""
     try:
-        click.edit(filename=CONFIG_FILE, editor="vim")
+        click.edit(filename=titr.CONFIG_FILE, editor="vim")
     except click.exceptions.ClickException:  # try without specifying vim
         try:
-            click.edit(filename=CONFIG_FILE)
+            click.edit(filename=titr.CONFIG_FILE)
         except Exception as exc:
             print("Failed to edit config: ", exc)
 
@@ -422,7 +419,7 @@ def write_db(console: ConsoleSession, input_type: str = "user") -> None:  # prag
 
     # Clear all time entries so they aren't entered a second time
     clear_entries(console)
-    print(f"Commited entries to {TITR_DB}.")
+    print(f"Commited entries to {titr.TITR_DB}.")
 
 
 @dc.ConsoleCommand(name="modes", aliases=["m"])
@@ -604,7 +601,7 @@ def deep_work(console: ConsoleSession) -> None:  # pragma: no cover
     Deep work goal currently set in source code to 300 hours."""
     dw_total: float
     dw_last_365: float
-    dw_total, dw_last_365 = _query_deep_work(console)
+    dw_total, dw_last_365 = titr.database.query_deep_work(console)
     if dw_total <= 0:
         print("No deep work hours found.")
         return None
@@ -982,7 +979,7 @@ def _end_timed_activity(cs: ConsoleSession, user_args: argparse.Namespace) -> No
         WHERE l.id = (?)
     """
     cursor.execute(query_task, [entry_id])
-    task_id = _fetch_first(cursor)
+    task_id = fetch_first(cursor)
 
     query_category = """--sql
         SELECT c.user_key FROM time_log l
@@ -990,7 +987,7 @@ def _end_timed_activity(cs: ConsoleSession, user_args: argparse.Namespace) -> No
         WHERE l.id = (?)
     """
     cursor.execute(query_category, [entry_id])
-    category_id = _fetch_first(cursor)
+    category_id = fetch_first(cursor)
 
     # convert timestamp stored in database to datetime object
     start_ts = datetime.datetime.strptime(start_ts, "%Y-%m-%d %X.%f")
@@ -1073,31 +1070,6 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
 
     return args
-
-
-def _query_deep_work(console: ConsoleSession) -> tuple[float, float]:
-    """Query the database for deep work hours.
-    Returns tuple of total and total over past 365 days."""
-    cursor = console.db_connection.cursor()
-
-    get_dw_total = """--sql
-        SELECT sum(duration) FROM time_log t
-        JOIN categories c on t.category_id=c.id
-        WHERE c.name = 'Deep Work'
-    """
-    cursor.execute(get_dw_total)
-    dw_total = _fetch_first(cursor)
-    if dw_total is None:
-        return 0.0, 0.0
-
-    get_dw_last_365 = get_dw_total + " AND date>=(?)"
-    last_year = datetime.date.today() - datetime.timedelta(days=365)
-    cursor.execute(get_dw_last_365, [last_year])
-    dw_last_365 = _fetch_first(cursor)
-    if dw_last_365 is None:
-        dw_last_365 = 0.0
-
-    return dw_total, dw_last_365
 
 
 def _sum_grouped_tasks(tasks: list[tuple[str, float, str]]) -> float:

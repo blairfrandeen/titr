@@ -1,3 +1,4 @@
+import datetime
 import os
 import sys
 import sqlite3
@@ -221,7 +222,7 @@ def db_session_metadata(
     return session_id
 
 
-def _fetch_first(cursor: sqlite3.Cursor, default: Optional[Any] = None) -> Optional[Any]:
+def fetch_first(cursor: sqlite3.Cursor, default: Optional[Any] = None) -> Optional[Any]:
     """Given the result of an sql query from a cursor.fetchone()
     call, return the first element if it exists.
 
@@ -256,9 +257,9 @@ def db_write_time_log(console, session_id: int) -> None:
     for entry in console.time_entries:
         # TODO: Handling for no task ID found
         cursor.execute(get_task_id, [entry.task])
-        task_id = _fetch_first(cursor)
+        task_id = fetch_first(cursor)
         cursor.execute(get_category_id, [entry.category])
-        category_id = _fetch_first(cursor)
+        category_id = fetch_first(cursor)
         entry_parameters = [
             entry.date,
             entry.duration,
@@ -276,3 +277,28 @@ def db_write_time_log(console, session_id: int) -> None:
         else:
             cursor.execute(write_entry, entry_parameters)
     console.db_connection.commit()
+
+
+def query_deep_work(console) -> tuple[float, float]:
+    """Query the database for deep work hours.
+    Returns tuple of total and total over past 365 days."""
+    cursor = console.db_connection.cursor()
+
+    get_dw_total = """--sql
+        SELECT sum(duration) FROM time_log t
+        JOIN categories c on t.category_id=c.id
+        WHERE c.name = 'Deep Work'
+    """
+    cursor.execute(get_dw_total)
+    dw_total = fetch_first(cursor)
+    if dw_total is None:
+        return 0.0, 0.0
+
+    get_dw_last_365 = get_dw_total + " AND date>=(?)"
+    last_year = datetime.date.today() - datetime.timedelta(days=365)
+    cursor.execute(get_dw_last_365, [last_year])
+    dw_last_365 = fetch_first(cursor)
+    if dw_last_365 is None:
+        dw_last_365 = 0.0
+
+    return dw_total, dw_last_365

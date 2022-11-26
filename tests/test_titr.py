@@ -53,25 +53,25 @@ def time_entry(
     yield te
 
 
-def test_query_dw(console, monkeypatch, time_entry):
+def test_query_dw(console):
     """Cases to test:
     - No deep work at all
     - DW total, but none in last 365
     - DW in past 365
     """
-    dw_total, dw_last_yr = titr.titr_main._query_deep_work(console)
+    dw_total, dw_last_yr = titr.database.query_deep_work(console)
     assert dw_total == 0
     assert dw_last_yr == 0
 
     console.add_entry(TimeEntry(category=2, date=datetime.date(1984, 6, 17), duration=11.53))
     titr.titr_main.write_db(console)
-    dw_total, dw_last_yr = titr.titr_main._query_deep_work(console)
+    dw_total, dw_last_yr = titr.database.query_deep_work(console)
     assert dw_total == 11.53
     assert dw_last_yr == 0
 
     console.add_entry(TimeEntry(category=2, date=datetime.date.today(), duration=8))
     titr.titr_main.write_db(console)
-    dw_total, dw_last_yr = titr.titr_main._query_deep_work(console)
+    dw_total, dw_last_yr = titr.database.query_deep_work(console)
     assert dw_total == 19.53
     assert dw_last_yr == 8
 

@@ -4,7 +4,7 @@ import pytest
 
 from dataclasses import dataclass
 from titr.titr_main import (
-    _fetch_first,
+    fetch_first,
     db_session_metadata,
     db_populate_task_category_lists,
     db_write_time_log,
@@ -45,7 +45,7 @@ def test_fetch_first(query_result, default, expected):
         def fetchone(self):
             return query_result
 
-    assert _fetch_first(_MockCursor(), default=default) == expected
+    assert fetch_first(_MockCursor(), default=default) == expected
 
 
 def test_populate_tables(console):
