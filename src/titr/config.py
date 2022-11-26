@@ -19,6 +19,7 @@ class Config:
     max_duration: float = 9
     deep_work_goal: float = 0
     incidental_tasks: list[str] = field(default_factory=list)
+    source_file: str = ""
 
 
 def create_default_config():
@@ -94,6 +95,7 @@ def load_config(config_file=CONFIG_FILE) -> Config:
             continue
         config.task_list[key] = parser["tasks"][key]
 
+    config.source_file = config_file
     config.default_task = parser["general_options"]["default_task"]
     config.incidental_tasks = parser["incidental_tasks"]["keys"].split(", ")
     config.incidental_tasks = list(map(str.strip, config.incidental_tasks))
@@ -131,5 +133,6 @@ def load_config(config_file=CONFIG_FILE) -> Config:
         int(status) for status in parser["outlook_options"]["skip_event_status"].split(",")
     ]
     config.skip_all_day_events = parser.getboolean("outlook_options", "skip_all_day_events")
+    # print(f"Loaded config from {config_file=}")
 
     return config

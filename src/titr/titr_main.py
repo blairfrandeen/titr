@@ -289,14 +289,16 @@ def edit_config(console) -> None:
     """Edit the titr.cfg configuration file using vim."""
     try:
         click.edit(filename=titr.CONFIG_FILE, editor="vim")
-    except click.exceptions.ClickException:  # try without specifying vim
+    # try without specifying vim
+    except click.exceptions.ClickException:  # pragma: no cover
         try:
             click.edit(filename=titr.CONFIG_FILE)
         except Exception as exc:
             print("Failed to edit config: ", exc)
 
     # reload the configuration
-    console.config: Config = load_config()
+    console.config: Config = load_config(config_file=console.config.source_file)
+    titr.database.db_populate_task_category_lists(console)
 
 
 @dc.ConsoleCommand(name="list", aliases=["ls"])

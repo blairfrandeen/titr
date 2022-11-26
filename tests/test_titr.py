@@ -11,10 +11,36 @@ import pytest
 
 import titr
 from titr.titr_main import ConsoleSession, TimeEntry
+from titr.config import load_config
 
 
 TEST_DB = ":memory:"
 #  TEST_DB = "testdb.db"
+
+
+@pytest.fixture
+def titr_default_config(monkeypatch, tmp_path):
+    test_config_path = tmp_path / "test.ini"
+    monkeypatch.setattr(titr.config, "CONFIG_FILE", test_config_path)
+    monkeypatch.setattr("builtins.input", lambda _: "yourname@example.com")
+    titr.config.create_default_config()
+    test_config = configparser.ConfigParser()
+
+    test_config.read(test_config_path)
+    # Use the email as a test flag
+    test_config.set("outlook_options", "email", "test@config.com")
+
+    # Add some illegal entries
+    # TODO: Check that these raise expected warnings
+    test_config.set("categories", "bad_cat_key", "meow!")
+    test_config.set("tasks", "long_key", "not allowed!")
+    test_config.set("tasks", "8", "digits not allowed!")
+    test_config.set("general_options", "default_category", "0")
+    test_config.set("general_options", "default_task", "too long")
+    test_config.set("outlook_options", "skip_event_names", "Lunch, Meeting")
+    with open(test_config_path, "w") as cfg_fh:
+        test_config.write(cfg_fh)
+    yield test_config_path
 
 
 @pytest.fixture
@@ -29,9 +55,12 @@ def db_connection(monkeypatch):
 
 
 @pytest.fixture
-def console(monkeypatch, db_connection):
+def console(monkeypatch, db_connection, titr_default_config):
     monkeypatch.setattr("titr.database.db_initialize", lambda **_: db_connection)
+
     cs = ConsoleSession()
+    cs.config = load_config(titr_default_config)
+
     yield cs
 
 
@@ -51,6 +80,55 @@ def time_entry(
         comment=comment,
     )
     yield te
+
+
+def test_edit_config(console, time_entry, monkeypatch, titr_default_config):
+    """Addresses issue
+    https://github.com/blairfrandeen/titr/issue/5
+    """
+
+    # Check that we're using the proper test configuration
+    test_config_path = titr_default_config
+    monkeypatch.setattr("titr.config.CONFIG_FILE", test_config_path)
+    console.config = titr.config.load_config(test_config_path)
+    assert console.config.outlook_account == "test@config.com"
+    assert console.config.source_file == test_config_path
+
+    # Check that we are indeed using the :memory: database
+    console_database_query = console.db_connection.execute("PRAGMA database_list").fetchone()
+    assert console_database_query[2] == ""
+
+    # Add and commit a single entry
+    first_entry = time_entry
+    first_entry.duration = 5
+    console.add_entry(first_entry)
+    titr.titr_main.write_db(console, input_type="test")
+    assert titr.titr_main.show_weekly_timecard(console) == first_entry.duration
+
+    # Add a new task key to the configuration file
+    def _add_new_task():
+        test_config = configparser.ConfigParser()
+        test_config.read(test_config_path)
+        test_config.set("tasks", "Z", "new test task")
+        with open(test_config_path, "w") as cfg_fh:
+            test_config.write(cfg_fh)
+
+    monkeypatch.setattr("click.edit", lambda **_: _add_new_task())
+    titr.titr_main.edit_config(console)
+
+    # Check that the new task key exists
+    assert console.config.source_file == test_config_path
+    assert console.config.task_list["z"] == "new test task"
+
+    # Make a new entry with the new task type
+    second_entry = time_entry
+    second_entry.task = "z"  # a new task
+    second_entry.duration = 2
+
+    # add and commit the new entry
+    console.add_entry(second_entry)
+    titr.titr_main.write_db(console, input_type="test")
+    assert titr.titr_main.show_weekly_timecard(console) == 7
 
 
 def test_query_dw(console):

@@ -3,28 +3,7 @@ import configparser
 
 import titr
 from titr.config import create_default_config, load_config
-from test_titr import console, db_connection
-
-
-@pytest.fixture
-def titr_default_config(monkeypatch, tmp_path):
-    test_config_path = tmp_path / "test.ini"
-    monkeypatch.setattr(titr.config, "CONFIG_FILE", test_config_path)
-    monkeypatch.setattr("builtins.input", lambda _: "yourname@example.com")
-    create_default_config()
-    test_config = configparser.ConfigParser()
-
-    # Add some illegal entries
-    test_config.read(test_config_path)
-    test_config.set("categories", "bad_cat_key", "meow!")
-    test_config.set("tasks", "long_key", "not allowed!")
-    test_config.set("tasks", "8", "digits not allowed!")
-    test_config.set("general_options", "default_category", "0")
-    test_config.set("general_options", "default_task", "too long")
-    test_config.set("outlook_options", "skip_event_names", "Lunch, Meeting")
-    with open(test_config_path, "w") as cfg_fh:
-        test_config.write(cfg_fh)
-    yield test_config_path
+from test_titr import console, db_connection, titr_default_config
 
 
 def test_default_config(titr_default_config):
