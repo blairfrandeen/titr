@@ -18,8 +18,9 @@ import win32com.client
 OUTLOOK_ACCOUNT = "blairfrandeen@outlook.com"
 TEST_CALENDAR_NAME = "TITR_TEST_CAL"
 TEST_DAY = datetime.date(2022, 6, 3)
-dst = time.daylight and time.localtime().tm_isdst
-UTC_OFFSET_HR = -(time.altzone if dst else time.timezone) / 3600
+# dst = time.daylight and time.localtime().tm_isdst
+# UTC_OFFSET_HR = -(time.altzone if dst else time.timezone) / 3600
+UTC_OFFSET_HR = -time.altzone / 3600
 
 
 @pytest.fixture
@@ -118,7 +119,7 @@ def test_appt_parameters():
     return params
 
 
-@pytest.mark.skipif("win" not in sys.platform, reason="Skipping windows only tets.")
+@pytest.mark.skipif("win" not in sys.platform, reason="Skipping windows only tests.")
 def test_get_outlook_items(make_appointment, monkeypatch, test_appt_parameters):
     test_appointments = []
     for appt in test_appt_parameters:
@@ -129,6 +130,8 @@ def test_get_outlook_items(make_appointment, monkeypatch, test_appt_parameters):
     #    monkeypatch.setattr("titr.CALENDAR_NAME", TEST_CALENDAR_NAME)
 
     outlook_items = get_outlook_items(TEST_DAY, TEST_CALENDAR_NAME, OUTLOOK_ACCOUNT)
+    # for item in outlook_items:
+    #     print(f"{item.Subject=} {item.Start=}")
 
     assert sum(1 for _ in outlook_items) == len(test_appt_parameters)
     for index, appt in enumerate(outlook_items):
