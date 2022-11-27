@@ -395,7 +395,7 @@ def undo_last(console) -> None:
 
 
 @dc.ConsoleCommand(name="write", aliases=["c", "commit"])
-def write_db(console: ConsoleSession, input_type: str = "user") -> None:  # pragma: no cover
+def write_db(console: ConsoleSession, input_type: str = "user") -> None:
     """
     Permanently commit time entries to the database.
 
@@ -419,7 +419,7 @@ def write_db(console: ConsoleSession, input_type: str = "user") -> None:  # prag
 
     # Clear all time entries so they aren't entered a second time
     clear_entries(console)
-    print(f"Commited entries to {titr.TITR_DB}.")
+    print(f"Commited entries to {console.database_file}.")
 
 
 @dc.ConsoleCommand(name="modes", aliases=["m"])

@@ -58,7 +58,7 @@ def db_connection(monkeypatch):
 def console(monkeypatch, db_connection, titr_default_config):
     monkeypatch.setattr("titr.database.db_initialize", lambda **_: db_connection)
 
-    cs = ConsoleSession()
+    cs = ConsoleSession(database_file=":memory:")
     cs.config = load_config(titr_default_config)
 
     yield cs
@@ -129,6 +129,16 @@ def test_edit_config(console, time_entry, monkeypatch, titr_default_config):
     console.add_entry(second_entry)
     titr.titr_main.write_db(console, input_type="test")
     assert titr.titr_main.show_weekly_timecard(console) == 7
+
+
+def test_write_db(console, time_entry, capsys):
+    with pytest.raises(titr.datum_console.InputError):
+        titr.titr_main.write_db(console, input_type="test")
+
+    console.add_entry(time_entry)
+    titr.titr_main.write_db(console, input_type="test")
+    captured = capsys.readouterr()
+    assert console.database_file in captured.out
 
 
 def test_query_dw(console):
