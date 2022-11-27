@@ -4,14 +4,15 @@ import sys
 
 import pytest
 
+if not sys.platform.startswith("win32"):
+    pytest.skip(reason="windows only tests", allow_module_level=True)
+
 from titr.titr_main import import_from_outlook
 from titr.datum_console import InputError
 from titr.outlook import get_outlook_items
 from test_titr import console, db_connection
 from test_config import titr_default_config
 
-if not sys.platform.startswith("win32"):
-    pytest.skip(reason="windows only tests", allow_module_level=True)
 
 import pywintypes
 import win32com.client
