@@ -22,15 +22,7 @@ from colorama import Fore, Style
 import pandas as pd
 import click
 
-try:  # pragma: no cover
-    # Attempt to import modules to use with Outlook
-    import pywintypes
-    import win32com.client
-except ImportError:
-    # If failed, outlook commands disabled
-    OUTLOOK_ENABLED = False
-else:  # pragma: no cover
-    OUTLOOK_ENABLED = True
+OUTLOOK_ENABLED = "win" in sys.platform
 
 # allow for this file to be run from source tree root
 sys.path.append("src")
@@ -634,7 +626,7 @@ def import_from_outlook(console: ConsoleSession) -> None:
 
     Requires that outlook be running with the account specified
     in your ~/.titr/titr.cfg file active. Windows only."""
-    outlook_items = get_outlook_items(
+    outlook_items = titr.outlook.get_outlook_items(
         console.date, console.config.calendar_name, console.config.outlook_account
     )
     if outlook_items is not None:
@@ -818,49 +810,6 @@ def export_to_csv(
 # PRIVATE FUNCTIONS #
 #####################
 # TODO: Rename with leading underscore, organize
-
-
-def get_outlook_items(search_date: datetime.date, calendar_name: str, outlook_account: str):
-    """Read calendar items from Outlook."""
-
-    # connect to outlook
-    # TODO: Move to separate function
-    try:
-        outlook = win32com.client.Dispatch("Outlook.Application")
-        namespace = outlook.GetNamespace("MAPI")
-    except pywintypes.com_error as err:
-        print(f"Error connecting to Outlook Namespace: {err}")
-        return None
-    try:
-        acct = namespace.Folders.Item(outlook_account)
-    except pywintypes.com_error as err:
-        print(f'Error connecting to account "{outlook_account}": {err}')
-        return None
-    try:
-        calendar = acct.Folders(calendar_name)
-    except pywintypes.com_error as err:
-        print(f'Calendar with name "{calendar_name}" not found: {err}')
-        return None
-
-    # Time format string requried by MAPI to filter by date
-    MAPI_TIME_FORMAT: str = "%m-%d-%Y %I:%M %p"
-    cal_items = calendar.Items
-    cal_items.Sort("Start", False)
-    cal_items.IncludeRecurrences = True
-    search_end: datetime.date = search_date + datetime.timedelta(days=1)
-    search_str: str = "".join(
-        [
-            "[Start] >= '",
-            search_date.strftime(MAPI_TIME_FORMAT),
-            "' AND [End] <= '",
-            search_end.strftime(MAPI_TIME_FORMAT),
-            "'",
-        ]
-    )
-
-    cal_filtered = cal_items.Restrict(search_str)
-
-    return cal_filtered
 
 
 def _parse_time_entry(console: ConsoleSession, raw_input: str) -> Optional[TimeEntry]:

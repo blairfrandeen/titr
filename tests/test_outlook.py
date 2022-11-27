@@ -4,8 +4,9 @@ import sys
 
 import pytest
 
-from titr.titr_main import get_outlook_items, import_from_outlook
+from titr.titr_main import import_from_outlook
 from titr.datum_console import InputError
+from titr.outlook import get_outlook_items
 from test_titr import console, db_connection
 from test_config import titr_default_config
 
@@ -169,7 +170,7 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
     def _mock_set_mode():
         print("Mode changed.")
 
-    monkeypatch.setattr("titr.titr_main.get_outlook_items", _mock_get_outlook_items)
+    monkeypatch.setattr("titr.outlook.get_outlook_items", _mock_get_outlook_items)
     console.config.skip_event_names = ["Filtered Event"]
 
     def _mock_user_input(**kwargs):
@@ -178,7 +179,7 @@ def test_import_from_outlook(console, monkeypatch, mock_appointments, capsys):
     with pytest.raises(InputError):
         import_from_outlook(console)
 
-    monkeypatch.setattr("titr.titr_main.get_outlook_items", lambda *_: mock_appointments)
+    monkeypatch.setattr("titr.outlook.get_outlook_items", lambda *_: mock_appointments)
     monkeypatch.setattr("builtins.input", lambda _: "")
     import_from_outlook(console)
     captured = capsys.readouterr()
