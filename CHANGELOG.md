@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v0.10.0 (2023-01-03)
+### Feature
+* Add 'config' command ([`5c89f39`](https://github.com/blairfrandeen/titr/commit/5c89f39919a94b0b9ff32f739f562649c6fd5dcb))
+
+### Fix
+* Minor import changes for compatibility on Linux. ([`d58ed56`](https://github.com/blairfrandeen/titr/commit/d58ed5663e423b980f71f6acd849ecd446d2859b))
+* Display correct database file on commit. ([`9d9f77c`](https://github.com/blairfrandeen/titr/commit/9d9f77c06d7107ee740f8efca93d4f1b6080244f))
+* Time entries committed when editing config ([`206f5f5`](https://github.com/blairfrandeen/titr/commit/206f5f5d1c2e75813d75f9336a99061a9326ff34))
+
 ## v0.9.0 (2022-08-31)
 ### Feature
 * Show daily log of tasks ([`c7b0381`](https://github.com/blairfrandeen/titr/commit/c7b0381a2934d2f3bea6bb424517de4ad926178b))
